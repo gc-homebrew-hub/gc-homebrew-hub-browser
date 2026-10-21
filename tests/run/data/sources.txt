@@ -1,0 +1,2 @@
+http://127.0.0.1:8765/index.json	127.0.0.1:8765	u
+-https://example.com/index.json	Main	b

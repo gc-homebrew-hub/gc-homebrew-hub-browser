@@ -1,0 +1,8 @@
+build/
+third_party/
+*.dol
+*.elf
+*.map
+.DS_Store
+package/
+tests/build/

@@ -1,0 +1,2 @@
+bare	b11	stamped	run.dol	Bare app
+demo	1.2	demo	boot.dol	Demo

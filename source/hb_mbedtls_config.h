@@ -1,0 +1,99 @@
+/* hb_mbedtls_config.h - adjustments on top of mbedTLS 3.6's default config
+ * (included through MBEDTLS_USER_CONFIG_FILE, i.e. after mbedtls_config.h).
+ *
+ * The target is a GameCube: no OS, no filesystem the library should touch,
+ * no hardware RNG, 24 MB of RAM, and we only ever act as an HTTPS client. */
+#ifndef HB_MBEDTLS_CONFIG_H
+#define HB_MBEDTLS_CONFIG_H
+
+/* Platform: no sockets, timing, files or persistent storage in the library.
+ * net.c provides the socket layer, the entropy source and the clock. */
+#undef MBEDTLS_NET_C
+#undef MBEDTLS_TIMING_C
+#undef MBEDTLS_FS_IO
+#undef MBEDTLS_PSA_ITS_FILE_C
+#undef MBEDTLS_PSA_CRYPTO_STORAGE_C
+#undef MBEDTLS_HAVE_ASM
+#undef MBEDTLS_AESNI_C
+#undef MBEDTLS_AESCE_C
+#undef MBEDTLS_PADLOCK_C
+#undef MBEDTLS_SELF_TEST
+#undef MBEDTLS_DEBUG_C
+#undef MBEDTLS_ERROR_C
+#undef MBEDTLS_VERSION_FEATURES
+
+#define MBEDTLS_NO_PLATFORM_ENTROPY
+#define MBEDTLS_ENTROPY_HARDWARE_ALT
+#define MBEDTLS_PLATFORM_TIME_ALT
+#define MBEDTLS_PLATFORM_MS_TIME_ALT
+
+/* TLS: client only, stream only (no DTLS), no session resumption. */
+#undef MBEDTLS_SSL_SRV_C
+#undef MBEDTLS_SSL_PROTO_DTLS
+#undef MBEDTLS_SSL_DTLS_ANTI_REPLAY
+#undef MBEDTLS_SSL_DTLS_HELLO_VERIFY
+#undef MBEDTLS_SSL_DTLS_CLIENT_PORT_REUSE
+#undef MBEDTLS_SSL_DTLS_CONNECTION_ID
+#undef MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT
+#undef MBEDTLS_SSL_CACHE_C
+#undef MBEDTLS_SSL_TICKET_C
+#undef MBEDTLS_SSL_SESSION_TICKETS
+#undef MBEDTLS_SSL_CONTEXT_SERIALIZATION
+#undef MBEDTLS_SSL_RENEGOTIATION
+#undef MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_PSK_ENABLED
+#undef MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_PSK_EPHEMERAL_ENABLED
+
+/* Key exchange: ECDHE (and plain RSA for old servers). PSK and finite-field
+ * DH are not used; DHM would also be painfully slow on a 486 MHz 750. */
+#undef MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
+#undef MBEDTLS_KEY_EXCHANGE_DHE_PSK_ENABLED
+#undef MBEDTLS_KEY_EXCHANGE_ECDHE_PSK_ENABLED
+#undef MBEDTLS_KEY_EXCHANGE_RSA_PSK_ENABLED
+#undef MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED
+#undef MBEDTLS_KEY_EXCHANGE_ECDH_ECDSA_ENABLED
+#undef MBEDTLS_KEY_EXCHANGE_ECDH_RSA_ENABLED
+#undef MBEDTLS_DHM_C
+#undef MBEDTLS_ECJPAKE_C
+
+/* Curves: what public CAs and servers actually use. */
+#undef MBEDTLS_ECP_DP_SECP192R1_ENABLED
+#undef MBEDTLS_ECP_DP_SECP224R1_ENABLED
+#undef MBEDTLS_ECP_DP_SECP192K1_ENABLED
+#undef MBEDTLS_ECP_DP_SECP224K1_ENABLED
+#undef MBEDTLS_ECP_DP_SECP256K1_ENABLED
+#undef MBEDTLS_ECP_DP_BP256R1_ENABLED
+#undef MBEDTLS_ECP_DP_BP384R1_ENABLED
+#undef MBEDTLS_ECP_DP_BP512R1_ENABLED
+#undef MBEDTLS_ECP_DP_CURVE448_ENABLED
+
+/* Ciphers and modes: keep AES-GCM, AES-CBC (TLS 1.2 fallback), ChaCha20-
+ * Poly1305. Drop the rest. */
+#undef MBEDTLS_ARIA_C
+#undef MBEDTLS_CAMELLIA_C
+#undef MBEDTLS_DES_C
+#undef MBEDTLS_CCM_C
+#undef MBEDTLS_CMAC_C
+#undef MBEDTLS_NIST_KW_C
+#undef MBEDTLS_CIPHER_MODE_CFB
+#undef MBEDTLS_CIPHER_MODE_OFB
+#undef MBEDTLS_CIPHER_MODE_XTS
+#undef MBEDTLS_MD5_C
+#undef MBEDTLS_RIPEMD160_C
+#undef MBEDTLS_SHA3_C
+#undef MBEDTLS_LMS_C
+
+/* X.509: parse certificates only; never write keys, CSRs or certs. */
+#undef MBEDTLS_X509_CRL_PARSE_C
+#undef MBEDTLS_X509_CSR_PARSE_C
+#undef MBEDTLS_X509_CREATE_C
+#undef MBEDTLS_X509_CRT_WRITE_C
+#undef MBEDTLS_X509_CSR_WRITE_C
+#undef MBEDTLS_PK_WRITE_C
+#undef MBEDTLS_PEM_WRITE_C
+#undef MBEDTLS_PKCS5_C
+#undef MBEDTLS_PKCS7_C
+#undef MBEDTLS_PKCS12_C
+#undef MBEDTLS_GENPRIME
+#undef MBEDTLS_PK_RSA_ALT_SUPPORT
+
+#endif /* HB_MBEDTLS_CONFIG_H */
