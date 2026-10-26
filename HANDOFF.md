@@ -68,13 +68,13 @@ The owner asked for the console's own menu aesthetic. What that became:
   faces darker, a solid core spinning inside, near faces with a gloss and
   decals drawn on them with the normal 2D calls (`CubeFaceFn`, face units
   0..100), glowing edges and corner pixels. Sections sit on faces: top =
-  Sources, bottom = Installed, left = Settings, right = App store, front and
-  back = "GC HOMEBREW HUB". The D-pad turns that face three-quarters on,
+  Sources, bottom = Installed, left = Settings, right = Homebrew Hub (the store), front
+  and back = "GC BROWSER". The D-pad turns that face three-quarters on,
   the Control Stick leans the cube live, the C-stick spins it and it springs
   back, opening flies square into the face (18 frames) and coming back zooms
   out of it. Indigo background with a floor grid and drifting sparks.
 - Sections: a dark grid with pulsing "pixel" crossings and a scan line, each
-  section in its own neon accent (Sources blue, Installed green, App store
+  section in its own neon accent (Sources blue, Installed green, Homebrew Hub
   violet, Settings orange; `C_SOURCES` etc. in `ui.h`, `ui_set_accent`).
   Panels, rows, tags, toasts, dialogs and keyboard are glossy translucent
   glass (`ui_glass`). Footers draw the controller's buttons (green A, red B,

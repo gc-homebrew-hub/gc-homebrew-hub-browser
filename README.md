@@ -42,7 +42,7 @@ work offline).
 |---|---|
 | Up | **Sources** (blue): the catalogs apps come from. A switches one on or off, X adds one (on-screen keyboard), Y removes one you added, Start reloads them. |
 | Down | **Installed** (green): everything in `sd:/apps`, as a grid of blocks like the memory card screen. A opens an app (start, update, reinstall, remove). Y shows only apps with an update; there, A asks to install it. |
-| Right | **App store** (violet): the apps the sources list. Left/Right pick a category, A opens the details page with Install. |
+| Right | **Homebrew Hub** (violet): the apps the sources list. Left/Right pick a category, A opens the details page with Install. |
 | Left | **Settings** (orange): load the catalogs at start, certificate checking, what leaving does, and a Leave entry. |
 
 Press a direction twice (or a direction then A) to open a section; the cube
@@ -53,7 +53,7 @@ freely (it springs back when you let go). X on the cube reloads the catalogs.
 | | |
 |---|---|
 | ![The main menu](docs/screenshots/menu.png) | ![Installed](docs/screenshots/installed.png) |
-| ![App store](docs/screenshots/app-store.png) | ![Sources](docs/screenshots/sources.png) |
+| ![Homebrew Hub](docs/screenshots/homebrew-hub.png) | ![Sources](docs/screenshots/sources.png) |
 
 These are renders from `make preview` (below), with a stand-in font; on the
 console the text is the IPL font.

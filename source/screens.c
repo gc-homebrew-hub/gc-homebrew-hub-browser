@@ -1,4 +1,4 @@
-/* screens.c - Sources, Installed, App store, Settings and the app details page. */
+/* screens.c - Sources, Installed, Homebrew Hub, Settings and the app details page. */
 #include "screens.h"
 #include "ui.h"
 #include "osk.h"
@@ -416,7 +416,7 @@ static void installed_draw(void) {
     ui_panel(x, py, w, ph);
     if (!inst_nitems) {
         font_draw_center(SCREEN_W / 2, py + ph / 2 - 10, FS_BODY, C_TEXT_DIM,
-                         updates_only ? "Everything is up to date." : "No apps in sd:/apps yet. Visit the App store.");
+                         updates_only ? "Everything is up to date." : "No apps in sd:/apps yet. Visit the Homebrew Hub.");
     } else {
         Installed *in = catalog_installed(inst_items[ls_inst.sel]);
         App *a = in->app >= 0 ? catalog_app(in->app) : NULL;
@@ -437,7 +437,7 @@ static void installed_draw(void) {
                            : "A  Details    Y  Updates only    X  Reload    B  Back");
 }
 
-/* ---- app store ---- */
+/* ---- homebrew hub (the store) ---- */
 
 static int storescr_update(u32 p) {
     build_store();
@@ -452,7 +452,7 @@ static int storescr_update(u32 p) {
 
 static void storescr_draw(void) {
     build_store();
-    ui_header("APP STORE", online_text());
+    ui_header("HOMEBREW HUB", online_text());
     ui_busy_banner();
     float x = UI_LEFT, w = UI_RIGHT - UI_LEFT;
     /* category strip (the busy banner takes its place while the worker runs) */

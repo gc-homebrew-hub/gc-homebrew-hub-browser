@@ -173,7 +173,7 @@ int main(int argc, char **argv) {
     make_card();
     menu_reset();
 
-    wait(60);                    shot("01-menu-app-store");
+    wait(60);                    shot("01-menu-homebrew-hub");
     press(BTN_UP); wait(40);     shot("02-menu-sources");
     press(BTN_LEFT); wait(40);   shot("03-menu-settings");
     press(BTN_DOWN); wait(30);
@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
     wait(30);                    shot("07-installed");
     press(BTN_RIGHT); press(BTN_RIGHT); wait(20); shot("08-installed-update");
     press(BTN_B); wait(4);       shot("09-back-to-cube");
-    press(BTN_RIGHT); wait(20); press(BTN_A); wait(40); shot("10-app-store");
+    press(BTN_RIGHT); wait(20); press(BTN_A); wait(40); shot("10-homebrew-hub");
     press(BTN_DOWN); press(BTN_DOWN); press(BTN_A); wait(40); shot("11-details");
     busy = true; step_text = "Downloading"; job = "Flashcube"; progress = 0.62f;
     wait(2);                     shot("12-details-installing");

@@ -17,7 +17,7 @@ static const struct { const char *label; Screen screen; float x, y; int face, ic
     { "SOURCES",   SCR_SOURCES,   320, 84,  CUBE_TOP,    ICON_SOURCES,   C_SOURCES },
     { "INSTALLED", SCR_INSTALLED, 320, 404, CUBE_BOTTOM, ICON_INSTALLED, C_INSTALLED },
     { "SETTINGS",  SCR_SETTINGS,  120, 236, CUBE_LEFT,   ICON_SETTINGS,  C_SETTINGS },
-    { "APP STORE", SCR_STORE,     520, 236, CUBE_RIGHT,  ICON_STORE,     C_STORE },
+    { "HOMEBREW HUB", SCR_STORE,     520, 236, CUBE_RIGHT,  ICON_STORE,     C_STORE },
 };
 /* the turn that shows a section's face three-quarters on, and square on */
 static const float face_rx[4] = { 62, -62, 14, 14 }, face_ry[4] = { -20, -20, 62, -62 };
@@ -96,7 +96,7 @@ static void face_draw(int face, float f, void *user) {
     }
     font_draw_center(50, 16, fit("GC", 70, 1.6f), ui_alpha(C_TEXT, f), "GC");
     gfx_rect(18, 60, 64, 2, ui_alpha(C_CUBE_EDGE, f));
-    font_draw_center(50, 66, fit("HOMEBREW HUB", 84, 0.6f), ui_alpha(C_TEXT_DIM, f), "HOMEBREW HUB");
+    font_draw_center(50, 66, fit("BROWSER", 84, 0.6f), ui_alpha(C_TEXT_DIM, f), "BROWSER");
 }
 
 void menu_draw(void) {
@@ -173,7 +173,7 @@ void menu_draw(void) {
         ui_glass(x, y, w, ht, 12, ui_mix(RGBA(255, 255, 255, 30), RGBA(ac.r, ac.g, ac.b, 150), k), tiles_a);
         ui_icon(tiles[i].icon, x + 25, y + ht / 2, 24,
                 ui_alpha(ui_mix(ac, RGB(255, 255, 255), 0.25f + 0.5f * k), tiles_a));
-        font_draw_clip(x + 48, y + 8, FS_BODY, ui_alpha(C_TEXT, tiles_a), tiles[i].label, w - 56);
+        font_draw_clip(x + 48, y + 8, fit(tiles[i].label, w - 56, FS_BODY), ui_alpha(C_TEXT, tiles_a), tiles[i].label, w - 56);
         char sub[64];
         tile_text(i, sub, sizeof sub);
         font_draw_clip(x + 48, y + 8 + font_height(FS_BODY), FS_SMALL, ui_alpha(C_TEXT_DIM, tiles_a), sub, w - 56);
