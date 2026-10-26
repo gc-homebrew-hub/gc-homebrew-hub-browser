@@ -1,5 +1,6 @@
 /* main.c - start-up and the frame loop. */
 #include "catalog.h"
+#include "emusd.h"
 #include "font.h"
 #include "fsutil.h"
 #include "input.h"
@@ -17,8 +18,13 @@
 #define DATA_DIR "sd:/apps/gc-homebrew-hub-browser"
 
 static bool mount_card(void) {
-    DISC_INTERFACE *ifaces[] = { &__io_gcsd2, &__io_gcsda, &__io_gcsdb };
-    for (int i = 0; i < 3; i++) {
+    DISC_INTERFACE *ifaces[] = {
+#ifdef EMU_SD
+        &__io_emusd,   /* the card in memory, for testing in an emulator */
+#endif
+        &__io_gcsd2, &__io_gcsda, &__io_gcsdb
+    };
+    for (int i = 0; i < (int)(sizeof ifaces / sizeof *ifaces); i++) {
         if (ifaces[i]->startup(ifaces[i]) && ifaces[i]->isInserted(ifaces[i]) && fatMountSimple("sd", ifaces[i])) return true;
         if (ifaces[i]->shutdown) ifaces[i]->shutdown(ifaces[i]);
     }

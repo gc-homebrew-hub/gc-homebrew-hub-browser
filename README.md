@@ -81,6 +81,35 @@ card. The build must stay warning-free.
 `make test` builds and runs the host-side tests (JSON, SHA-256, catalog and
 file helpers) with the normal C compiler; no devkitPPC needed.
 
+## Testing in Dolphin
+
+Dolphin runs the program, but it has no SD card device for the GameCube (its
+EXI device list has memory cards, the Broadband Adapter and a USB Gecko, and
+nothing else), so a stock build stops at "No SD card found". `EMU_SD=1` bakes
+a card image into the DOL and mounts it from memory instead:
+
+```bash
+./tools/mksdimg.sh      # needs dosfstools and mtools; writes data/emusd/sdcard.img
+docker run --rm -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest make clean
+docker run --rm -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest make EMU_SD=1
+dolphin-emu-nogui --platform=x11 --exec=boot.dol    # or open boot.dol in Dolphin
+```
+
+On a Mac, `brew install --cask dolphin` gets the emulator; the cask is macOS
+only, so on Linux build Dolphin from source.
+
+The image holds a plausible card: two sources, a saved copy of a catalog, two
+installed apps with an update waiting and one folder this program did not
+install. Writes land in the copy in memory and are gone when the program
+exits. Without `EMU_SD=1` the build is unchanged, byte for byte.
+
+Set Serial Port 1 to "Broadband Adapter (HLE)" in Dolphin and the catalogs
+load over the network. To point the card's second source at a server you run,
+pass its address: `LOCAL_URL=http://host:8765/index.json ./tools/mksdimg.sh`.
+The address has to be one the console would route to the gateway; Dolphin
+gives the guest the host's own address, so `127.0.0.1` and that address both
+end up in the guest's own loopback.
+
 ## Layout
 
 | Module | Role |

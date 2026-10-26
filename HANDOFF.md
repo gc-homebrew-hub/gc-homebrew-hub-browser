@@ -60,22 +60,77 @@ format is the only thing shared.
 - `make package` assembles `package/apps/gc-homebrew-hub-browser/` (boot.dol +
   cacert.pem); `data/cacert.pem` is the curl CA bundle.
 
-## What has NOT been verified
+## What the Dolphin run on 2026-10-26 showed
 
-Nothing has run on hardware or in an emulator (Dolphin is not installed on
-this Mac; it cannot emulate the SD card anyway, but would show the UI). In
-order of risk:
+First time the program has run anywhere. Dolphin (built from source, no SD
+card device, Serial Port 1 set to the built-in Broadband Adapter) with the
+`EMU_SD=1` build described in README.md. What worked:
 
-1. GX rendering and the IPL font (`video.c`, `font.c`): first thing to look at
-   on the console. If the screen stays black, suspect `video_init`; if there
-   is no text, `SYS_InitFont` (returns 1 on success) or the sheet texture
-   setup.
-2. TLS on the console: entropy comes from the time base; certificate dates
-   depend on SNTP or the console clock. Failures show as toasts such as
-   "TLS handshake failed (-0x....)" (mbedTLS error strings are compiled out).
-3. DNS: resolver asks the gateway, then 1.1.1.1 and 8.8.8.8 over UDP 53.
-4. The DOL stub and `SYS_ResetSystem(SYS_SHUTDOWN)` sequence (`dol.c`).
-5. libfat `rename` of directories during the folder swap.
+- GX set-up, the 2D primitives, the lit cube and the IPL font
+  (`SYS_InitFont`): every screen draws. A stock build without `EMU_SD=1`
+  reaches "No SD card found" and draws it correctly.
+- The card: libfat mounts the image, and the cube menu, Sources, Installed
+  (with the Y updates filter and the confirm dialog), App store, the category
+  strip, the details page, the on-screen keyboard, Settings, toasts and the
+  update badge all work off it.
+- Network: DHCP, DNS, HTTP and HTTPS. TLS was exercised both ways: without a
+  CA bundle the fetch returns an HTTP status, and with `cacert.pem` on the
+  card the handshake is rejected ("Certificate not trusted") when the
+  certificate does not verify, and Settings says "servers verified".
+- A whole install over the network from a catalog served on the LAN: the GET,
+  the size and SHA-256 checks, unzip, the `root` folder, the folder swap, the
+  stamp file and `installed.txt`. The app then shows as "Up to date" under
+  Installed and the details page offers Start, Reinstall and Remove.
+- Error paths: an unreachable host gives "Download failed: Host not found",
+  a source that fails keeps serving its saved copy.
+
+What it found:
+
+1. A source whose refresh failed but that has a saved copy is drawn as a
+   success: `store.c` sets `napps = -1` and then overwrites it with the count
+   from the cache, so the Sources screen takes the `napps > 0` branch and
+   paints "Failed: Certificate not trusted" in `C_GOOD` green
+   (`screens.c:263-264`). The second source, with no cache, is red as it
+   should be.
+2. "1 apps listed" in the toast after a reload: no singular.
+3. Text has a thin sliver of the next glyph on its left edge, clearest on
+   `I`, `i` and `n` ("iInsert a card", "an SD adapteriin slot A or B"). Looks
+   like the glyph's left texture coordinate in `font.c` reaching into its
+   neighbour; a half-texel inset would be the usual fix.
+4. A 537 KB download never finished, while a 4 KB one installed in seconds.
+   The host had sent the whole body and closed (the connection sat in
+   TIME_WAIT with empty queues) while the console still said "Downloading"
+   with an empty bar, and no timeout fired in about four minutes although
+   `READ_TIMEOUT_MS` is 20 s. Dolphin logged "Partial sends might not be
+   handled properly" 13 times, so the emulated adapter is the first suspect,
+   but it is worth checking on hardware that a stalled body read does time
+   out, and that the bar moves while bytes arrive.
+
+Not covered by this run: the DOL launcher (`dol.c`) and
+`SYS_ResetSystem(SYS_SHUTDOWN)` — the app that would have been started is the
+537 KB download above, so Start was never pressed; real SD2SP2/slot A/B
+hardware; libfat `rename` of directories on a real card (the image in memory
+does exercise the code path); `copy_to_root` with an existing folder.
+
+## What has NOT been verified on hardware
+
+The Dolphin run above covers the drawing, the card and the network as far as
+an emulator can. In order of risk, what is left:
+
+1. The DOL stub and `SYS_ResetSystem(SYS_SHUTDOWN)` sequence (`dol.c`).
+   Untouched by the emulator run and the only large piece still unexercised.
+2. The SD card itself: `__io_gcsd2` / `__io_gcsda` / `__io_gcsdb` and libfat
+   `rename` of directories during the folder swap. The run used a card in
+   memory, so everything above the driver has been through its paces, and the
+   driver has not.
+3. A download of real size over a real adapter, after the stall in finding 4.
+4. TLS on the console: entropy comes from the time base and certificate dates
+   depend on SNTP or the console clock, both of which Dolphin makes easy.
+   Failures show as toasts such as "TLS handshake failed (-0x....)" (mbedTLS
+   error strings are compiled out).
+5. GX and the IPL font on a real video encoder: both draw correctly in
+   Dolphin, so a black screen on the console points at `video_init`, and
+   missing text at `SYS_InitFont` (returns 1 on success).
 
 ## How to test on the GameCube
 
@@ -98,7 +153,8 @@ order of risk:
 
 ## Next steps (suggested order)
 
-1. Hardware test and fix what it finds.
+1. Hardware test and fix what it finds; start with `dol.c` and the card
+   driver, and with the four findings from the Dolphin run above.
 2. Publish the catalog repo as `michaellunzer/gc-homebrew-hub` (the default
    source URL in `settings.c` already expects that; raw.githubusercontent.com
    needs the repo to be public, or the URL must point at a server you run).

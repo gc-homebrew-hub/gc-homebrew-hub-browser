@@ -35,6 +35,14 @@ CFLAGS	=	-g -O2 -Wall -std=gnu11 -ffunction-sections -fdata-sections $(MACHDEP) 
 		-DMBEDTLS_USER_CONFIG_FILE='"hb_mbedtls_config.h"'
 CXXFLAGS	=	$(CFLAGS)
 ASFLAGS	=	-g $(MACHDEP)
+
+# EMU_SD=1 bakes the card image from tools/mksdimg.sh into the DOL and mounts
+# it from memory (source/emusd.c), the only way to get past "No SD card
+# found" in Dolphin, which has no SD card device. Test builds only.
+ifeq ($(EMU_SD),1)
+CFLAGS	+=	-DEMU_SD
+ASFLAGS	+=	-DEMU_SD
+endif
 LDFLAGS	=	-g $(MACHDEP) -Wl,--gc-sections -Wl,-Map,$(notdir $@).map
 
 # libzip pulls in zlib, bzip2, lzma and zstd; libfat and libbba go before libogc
