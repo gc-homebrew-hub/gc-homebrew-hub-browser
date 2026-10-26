@@ -14,3 +14,6 @@ void input_init(void);
 void input_poll(void);          /* once per frame */
 u32  input_pressed(void);       /* buttons that went down this frame, plus direction repeats */
 u32  input_held(void);
+/* Control Stick and C-stick, -1..1 each way (up is +y), with a dead zone;
+ * the pad pushed furthest wins. */
+void input_sticks(float *x, float *y, float *cx, float *cy);
