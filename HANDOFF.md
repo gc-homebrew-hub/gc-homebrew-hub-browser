@@ -69,7 +69,7 @@ The owner asked for the console's own menu aesthetic. What that became:
   decals drawn on them with the normal 2D calls (`CubeFaceFn`, face units
   0..100), glowing edges and corner pixels. Sections sit on faces: top =
   Sources, bottom = Installed, left = Settings, right = Homebrew Hub (the store), front
-  and back = "GC BROWSER". The D-pad turns that face three-quarters on,
+  and back = "GC / HOMEBREW / BROWSER". The D-pad turns that face three-quarters on,
   the Control Stick leans the cube live, the C-stick spins it and it springs
   back, opening flies square into the face (18 frames) and coming back zooms
   out of it. Indigo background with a floor grid and drifting sparks.

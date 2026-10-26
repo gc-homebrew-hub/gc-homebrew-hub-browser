@@ -94,9 +94,11 @@ static void face_draw(int face, float f, void *user) {
         font_draw_center(50, 70, fit(tiles[i].label, 86, 0.62f), ui_alpha(C_TEXT, f), tiles[i].label);
         return;
     }
-    font_draw_center(50, 16, fit("GC", 70, 1.6f), ui_alpha(C_TEXT, f), "GC");
-    gfx_rect(18, 60, 64, 2, ui_alpha(C_CUBE_EDGE, f));
-    font_draw_center(50, 66, fit("BROWSER", 84, 0.6f), ui_alpha(C_TEXT_DIM, f), "BROWSER");
+    font_draw_center(50, 8, fit("GC", 70, 1.4f), ui_alpha(C_TEXT, f), "GC");
+    gfx_rect(18, 50, 64, 2, ui_alpha(C_CUBE_EDGE, f));
+    float sc = fit("HOMEBREW", 84, 0.6f);
+    font_draw_center(50, 56, sc, ui_alpha(C_TEXT_DIM, f), "HOMEBREW");
+    font_draw_center(50, 58 + font_height(sc), sc, ui_alpha(C_TEXT_DIM, f), "BROWSER");
 }
 
 void menu_draw(void) {
