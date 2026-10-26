@@ -1,0 +1,42 @@
+# Builds boot.dol in the libogc2 image (the same command as README.md), runs
+# the host tests, and attaches the SD card folder to the run as an artifact.
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch mbedTLS
+        run: ./get-deps.sh
+
+      # (GitHub runs bash with pipefail, so a failed make fails the step)
+      - name: Build boot.dol
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest \
+            sh -c 'make && make package' 2>&1 | tee build.log
+
+      # The build must stay warning-free (our sources; mbedTLS is not ours)
+      - name: Check for warnings
+        run: |
+          if grep -E "/source/[^ ]*: *warning:|^source/[^ ]*: *warning:" build.log; then
+            echo "::error::The build has warnings in source/"
+            exit 1
+          fi
+
+      - name: Host tests
+        run: make test
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gc-homebrew-hub-browser-${{ github.sha }}
+          path: package/
+          if-no-files-found: error

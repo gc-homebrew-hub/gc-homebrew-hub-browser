@@ -89,6 +89,11 @@ docker run --rm -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest make
 `make package` then assembles `package/apps/gc-homebrew-hub-browser/` for the
 card. The build must stay warning-free.
 
+GitHub Actions (`.github/workflows/build.yml`) does the same on every push,
+fails on warnings in `source/`, runs `make test`, and attaches the `package`
+folder to the run: open the run under Actions (or the pull request's Checks)
+and download the artifact.
+
 `make test` builds and runs the host-side tests (JSON, SHA-256, catalog and
 file helpers) with the normal C compiler; no devkitPPC needed.
 
