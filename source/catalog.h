@@ -1,6 +1,6 @@
 /* catalog.h - sources, the apps they list, and what is installed on the card.
  *
- * Catalog format 1 (JSON), shared with the cubebrowser-apps repository:
+ * Catalog format 1 (JSON), shared with the gc-homebrew-hub catalog repository:
  *   sources.json: { "format": 1, "sources": [ { "name", "url" } ] }
  *   index.json:   { "format": 1, "name", "updated", "apps": [ { "slug", "name",
  *                   "author", "version", "category", "short", "long", "homepage",

@@ -242,7 +242,7 @@ bool catalog_parse_index(const char *json, size_t len, int source, App *out, int
             }
         /* reject entries that could not be installed safely */
         bool ok = slug_ok(a->slug) && url_ok(a->url) && name_ok(a->folder) && fs_safe_relative(a->binary) &&
-                  (!*a->root || fs_safe_relative(a->root)) && strcasecmp(a->folder, "gc-homebrew-browser") != 0;
+                  (!*a->root || fs_safe_relative(a->root)) && strcasecmp(a->folder, "gc-homebrew-hub-browser") != 0;
         if (ok && a->bare) {
             size_t bl = strlen(a->binary);
             ok = bl > 4 && !strcasecmp(a->binary + bl - 4, ".dol") && !strchr(a->binary, '/');
@@ -382,7 +382,7 @@ void catalog_scan_card(void) {
         char dir[280];
         snprintf(dir, sizeof dir, APPS_DIR "/%s", e->d_name);
         if (!fs_is_dir(dir)) continue;
-        if (!strcasecmp(e->d_name, "gc-homebrew-browser")) continue;
+        if (!strcasecmp(e->d_name, "gc-homebrew-hub-browser")) continue;
         bool known = false;
         for (int i = 0; i < ninst; i++) if (!strcasecmp(inst[i].folder, e->d_name)) known = true;
         if (known) continue;

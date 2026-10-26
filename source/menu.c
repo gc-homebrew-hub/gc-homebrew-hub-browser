@@ -66,7 +66,7 @@ static void tile_text(int i, char *sub, size_t cap) {
 void menu_draw(void) {
     int f = video_frame_count();
     /* title and status */
-    font_draw_shadow(UI_LEFT, UI_TOP, FS_BIG, C_TEXT, "HOMEBREW BROWSER");
+    font_draw_shadow(UI_LEFT, UI_TOP, FS_BIG, C_TEXT, "GC HOMEBREW HUB BROWSER");
     char status[160];
     if (store_busy()) {
         const char *name = store_job_name();

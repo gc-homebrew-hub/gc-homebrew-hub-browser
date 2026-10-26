@@ -5,7 +5,7 @@
 #include <string.h>
 
 #ifndef DEFAULT_SOURCES_URL
-#define DEFAULT_SOURCES_URL "https://raw.githubusercontent.com/Arial-Bold/cubebrowser-apps/main/sources.json"
+#define DEFAULT_SOURCES_URL "https://raw.githubusercontent.com/michaellunzer/gc-homebrew-hub/main/sources.json"
 #endif
 
 Settings g_settings;
@@ -45,7 +45,7 @@ void settings_load(const char *path) {
 bool settings_save(const char *path) {
     char buf[600];
     int n = snprintf(buf, sizeof buf,
-        "# GC Homebrew Browser settings\n"
+        "# GC Homebrew Hub Browser settings\n"
         "auto_refresh=%d\nverify_tls=%d\nsounds=%d\nexit_action=%d\nsources_url=%s\n",
         g_settings.auto_refresh, g_settings.verify_tls, g_settings.sounds, g_settings.exit_action,
         g_settings.sources_url);

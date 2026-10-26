@@ -30,7 +30,7 @@
 #define MAX_HOST          256
 #define READ_BUF_SIZE     (32 * 1024)
 #define FILE_BUF_SIZE     (64 * 1024)
-#define USER_AGENT        "GC-Homebrew-Browser/1.0"
+#define USER_AGENT        "GC-Homebrew-Hub-Browser/0.1"
 #define NTP_UNIX_OFFSET   2208988800u
 
 /* ------------------------------------------------------------------------- */
@@ -115,7 +115,7 @@ static bool tls_global_init(char *err, size_t errlen)
     }
     mbedtls_entropy_init(&s_entropy);
     mbedtls_ctr_drbg_init(&s_drbg);
-    const char *pers = "gc-homebrew-browser";
+    const char *pers = "gc-homebrew-hub-browser";
     if (mbedtls_ctr_drbg_seed(&s_drbg, mbedtls_entropy_func, &s_entropy,
                               (const unsigned char *) pers, strlen(pers)) != 0) {
         mbedtls_ctr_drbg_free(&s_drbg);

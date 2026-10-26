@@ -62,7 +62,7 @@ static const char *index_json =
 " {\"slug\":\"nourl\",\"name\":\"No url\"},"
 " {\"slug\":\"evil\",\"zip\":\"http://x/e.zip\",\"binary\":\"../../boot.dol\"},"
 " {\"slug\":\"demo\",\"zip\":\"http://x/dup.zip\"},"
-" {\"slug\":\"self\",\"zip\":\"http://x/s.zip\",\"folder\":\"gc-homebrew-browser\"},"
+" {\"slug\":\"self\",\"zip\":\"http://x/s.zip\",\"folder\":\"gc-homebrew-hub-browser\"},"
 " {\"slug\":\"baredir\",\"dol\":\"http://x/d.dol\",\"binary\":\"sub/x.dol\"}"
 "] }";
 

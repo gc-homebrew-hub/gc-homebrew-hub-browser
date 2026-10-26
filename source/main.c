@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define DATA_DIR "sd:/apps/gc-homebrew-browser"
+#define DATA_DIR "sd:/apps/gc-homebrew-hub-browser"
 
 static bool mount_card(void) {
     DISC_INTERFACE *ifaces[] = { &__io_gcsd2, &__io_gcsda, &__io_gcsdb };

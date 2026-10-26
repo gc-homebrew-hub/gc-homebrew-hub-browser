@@ -1,4 +1,4 @@
-# GC Homebrew Browser
+# GC Homebrew Hub Browser
 
 A homebrew app store for the Nintendo GameCube, in the spirit of the Wii's
 Homebrew Browser. Browse catalogs of GameCube homebrew, install, update,
@@ -23,8 +23,8 @@ Build (or download) and copy the `package/apps` folder to the root of the
 card, so the card has:
 
 ```
-sd:/apps/gc-homebrew-browser/boot.dol
-sd:/apps/gc-homebrew-browser/cacert.pem
+sd:/apps/gc-homebrew-hub-browser/boot.dol
+sd:/apps/gc-homebrew-hub-browser/cacert.pem
 ```
 
 `cacert.pem` is the set of trusted certificate authorities (the same bundle
@@ -59,8 +59,8 @@ cannot be started this way; start those from Swiss.
 ## Where the apps come from
 
 The default source list is fetched from the
-[cubebrowser-apps](https://github.com/Arial-Bold/cubebrowser-apps) repository
-(`sources.json`), and every source is an `index.json` in catalog format 1.
+[gc-homebrew-hub](https://github.com/michaellunzer/gc-homebrew-hub) repository
+(`sources.json`; that repository is still local only, so the default fails until it is published), and every source is an `index.json` in catalog format 1.
 That repository's README explains how to add an app or a source with a pull
 request. Any web server can host a source; add its `index.json` address under
 Sources.
@@ -75,7 +75,7 @@ Everything needed is in the libogc2 Docker image, except mbedTLS, which
 docker run --rm -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest make
 ```
 
-`make package` then assembles `package/apps/gc-homebrew-browser/` for the
+`make package` then assembles `package/apps/gc-homebrew-hub-browser/` for the
 card. The build must stay warning-free.
 
 `make test` builds and runs the host-side tests (JSON, SHA-256, catalog and

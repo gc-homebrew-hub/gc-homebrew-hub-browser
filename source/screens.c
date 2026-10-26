@@ -421,7 +421,7 @@ static void settings_draw(void) {
     }
     float ay = LIST_Y + ROW_H * SET_COUNT + 30;
     char line[460];
-    snprintf(line, sizeof line, "GC Homebrew Browser %s", APP_VERSION);
+    snprintf(line, sizeof line, "GC Homebrew Hub Browser %s", APP_VERSION);
     font_draw_shadow(x, ay, FS_SMALL, C_TEXT_DIM, line);
     snprintf(line, sizeof line, "Network: %s%s", store_net_up() ? net_ip_string() : "not connected",
              store_net_up() ? (store_tls_verified() ? "  (servers verified)" : "  (servers NOT verified)") : "");

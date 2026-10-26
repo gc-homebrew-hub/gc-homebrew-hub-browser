@@ -1,5 +1,5 @@
 #---------------------------------------------------------------------------------
-# GC Homebrew Browser - a homebrew app store for the GameCube. Builds boot.dol.
+# GC Homebrew Hub Browser - a homebrew app store for the GameCube. Builds boot.dol.
 # Needs devkitPPC + libogc2 (the Docker image in README.md has everything) and
 # mbedTLS 3.6 in third_party/mbedtls (run ./get-deps.sh once).
 #---------------------------------------------------------------------------------
@@ -82,12 +82,12 @@ clean:
 test:
 	@$(MAKE) --no-print-directory -C tests
 
-# What goes on the SD card: package/apps/gc-homebrew-browser/ (build first)
+# What goes on the SD card: package/apps/gc-homebrew-hub-browser/ (build first)
 package:
 	@test -f $(TARGET).dol || { echo "Build $(TARGET).dol first (see README.md)"; exit 1; }
-	@rm -rf package && mkdir -p package/apps/gc-homebrew-browser
-	@cp $(TARGET).dol package/apps/gc-homebrew-browser/boot.dol
-	@cp data/cacert.pem package/apps/gc-homebrew-browser/cacert.pem
+	@rm -rf package && mkdir -p package/apps/gc-homebrew-hub-browser
+	@cp $(TARGET).dol package/apps/gc-homebrew-hub-browser/boot.dol
+	@cp data/cacert.pem package/apps/gc-homebrew-hub-browser/cacert.pem
 	@echo "package/ is ready: copy its apps folder to the root of the SD card"
 
 else

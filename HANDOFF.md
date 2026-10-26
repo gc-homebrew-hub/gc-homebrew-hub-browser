@@ -1,6 +1,6 @@
-# Handoff: GC Homebrew Browser
+# Handoff: GC Homebrew Hub Browser
 
-Last updated 2026-10-25. Read this before continuing the work; README.md
+Last updated 2026-10-25 (names chosen: GC Homebrew Hub = the catalog, GC Homebrew Hub Browser = the program). Read this before continuing the work; README.md
 covers what the program is and how to build it.
 
 ## The goal
@@ -20,8 +20,8 @@ store, left = Settings.
 
 | Repo | Where | Remote | Status |
 |---|---|---|---|
-| gc-homebrew-browser (this one) | `~/Documents/GitHub/gc-homebrew-browser` | private, `michaellunzer/gc-homebrew-browser` | the program; pushing here is fine |
-| cubebrowser-apps (the catalog) | `~/Documents/GitHub/cubebrowser-apps` | none | local only; do not push or create a GitHub repo without being asked |
+| gc-homebrew-hub-browser (this one) | `~/Documents/GitHub/gc-homebrew-hub-browser` | private, `michaellunzer/gc-homebrew-hub-browser` | the program; pushing here is fine |
+| gc-homebrew-hub (the catalog, formerly cubebrowser-apps) | `~/Documents/GitHub/gc-homebrew-hub` | none yet | local only; the default source URL expects it at `michaellunzer/gc-homebrew-hub`; do not create or push it without being asked |
 | CubeBrowser (web browser) | `~/Documents/GitHub/Cubebrowser`, worktree branch `claude/cubebrowser-homebrew-apps-9f7d9c` | origin is upstream `Arial-Bold/Cubebrowser`, never pushed | contains the first, in-browser version of the store (`about:apps`). The owner decided the two should be separate and to leave that branch as it is for now. Never push, fork or open anything upstream from it. |
 
 History: the store was first built inside CubeBrowser (commits a5af82d,
@@ -57,7 +57,7 @@ format is the only thing shared.
   six-word block at entry+8 when it is all zero in the file.
 - Host tests (`make test`): 59 checks over JSON, SHA-256, catalog parsing and
   persistence, version compare, card scan, file helpers. All pass.
-- `make package` assembles `package/apps/gc-homebrew-browser/` (boot.dol +
+- `make package` assembles `package/apps/gc-homebrew-hub-browser/` (boot.dol +
   cacert.pem); `data/cacert.pem` is the curl CA bundle.
 
 ## What has NOT been verified
@@ -83,12 +83,12 @@ order of risk:
    `docker run --rm -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest make`
    and `make package`; copy `package/apps` to the root of the card.
 2. Start the catalog server on the Mac from the catalog repo:
-   `~/Documents/GitHub/cubebrowser-apps/scripts/serve.sh` (port 8765; it
+   `~/Documents/GitHub/gc-homebrew-hub/scripts/serve.sh` (port 8765; it
    prints the LAN address). The catalog has CubeBrowser, Flashcube (zip with a
    root data folder) and GC-MP3 (bare .dol release).
 3. The default source list URL (`settings.ini` key `sources_url`, default in
-   `settings.c`) points at `raw.githubusercontent.com/Arial-Bold/cubebrowser-apps`,
-   which does not exist publicly yet, so expect "Source list not loaded".
+   `settings.c`) points at `raw.githubusercontent.com/michaellunzer/gc-homebrew-hub`,
+   which does not exist yet, so expect "Source list not loaded".
    Add the LAN source on the console: Sources, X, type
    `http://<mac-ip>:8765/index.json`.
 4. Then: refresh, install Flashcube and GC-MP3, check `sd:/apps/<folder>`,
@@ -99,8 +99,9 @@ order of risk:
 ## Next steps (suggested order)
 
 1. Hardware test and fix what it finds.
-2. Decide where the catalog lives publicly (the owner's call; the sources URL
-   default in `settings.c` then changes) and push the catalog repo there.
+2. Publish the catalog repo as `michaellunzer/gc-homebrew-hub` (the default
+   source URL in `settings.c` already expects that; raw.githubusercontent.com
+   needs the repo to be public, or the URL must point at a server you run).
 3. Phase 2 ideas from the original plan: app icons in the catalog (JSON
    field + download + texture LRU), search, a sound on menu moves, argv for
    extra arguments, a quiet start-up update count shown on the cube screen
@@ -110,9 +111,9 @@ order of risk:
 
 ## Decisions and gotchas worth knowing
 
-- Data folder on the card is `sd:/apps/gc-homebrew-browser/`; apps go to
+- Data folder on the card is `sd:/apps/gc-homebrew-hub-browser/`; apps go to
   `sd:/apps/<folder>/` so Swiss sees them. The program refuses catalog
-  entries whose folder is `gc-homebrew-browser`.
+  entries whose folder is `gc-homebrew-hub-browser`.
 - Unmanaged folders in `sd:/apps` (not installed by this program) are listed
   under Installed with start and remove only; a folder matching a catalog
   app's folder is offered Reinstall.
