@@ -9,6 +9,7 @@
 #include "dol.h"
 #include "fsutil.h"
 #include <gccore.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,14 @@
 #define LIST_Y 104
 #define LIST_ROWS 7
 
+/* Installed: the card as a grid of blocks, like the memory card screen */
+#define GRID_COLS 6
+#define GRID_ROWS 3
+#define CELL_W    92
+#define CELL_H    78
+#define GRID_X    ((SCREEN_W - GRID_COLS * CELL_W) / 2)
+#define GRID_Y    100
+
 static Screen cur;
 static ListState ls_src, ls_inst, ls_store, ls_set;
 static bool updates_only;
@@ -24,6 +33,7 @@ static int store_cat;
 static int pending_remove = -1;
 static int pending_action;            /* what a confirm answers: 1 remove source, 2 update, 3 remove app, 4 exit */
 static int pending_index;
+static int enter_flash;               /* frames left of the flash after flying in from the cube */
 
 /* details */
 static int det_app, det_inst, det_btn, det_from;
@@ -64,6 +74,68 @@ static void launch(const Installed *in) {
     }
 }
 
+/* ---- the block grid: sel is an item, top the first item of the top row ---- */
+
+static void grid_clamp(ListState *l) {
+    if (l->count <= 0) { l->sel = 0; l->top = 0; return; }
+    if (l->sel >= l->count) l->sel = l->count - 1;
+    if (l->sel < 0) l->sel = 0;
+    int row = l->sel / GRID_COLS, top = l->top / GRID_COLS;
+    if (row < top) top = row;
+    if (row >= top + GRID_ROWS) top = row - GRID_ROWS + 1;
+    l->top = top * GRID_COLS;
+}
+
+static void grid_nav(ListState *l, u32 p) {
+    int n = l->count, s = l->sel;
+    if (n <= 0) return;
+    if (p & BTN_RIGHT) s = s + 1 < n ? s + 1 : 0;
+    if (p & BTN_LEFT) s = s > 0 ? s - 1 : n - 1;
+    if (p & BTN_DOWN) {
+        if (s + GRID_COLS < n) s += GRID_COLS;
+        else if (s / GRID_COLS < (n - 1) / GRID_COLS) s = n - 1;     /* into a shorter last row */
+        else s %= GRID_COLS;                                        /* round to the top row */
+    }
+    if (p & BTN_UP) {
+        if (s >= GRID_COLS) s -= GRID_COLS;
+        else { s += (n - 1) / GRID_COLS * GRID_COLS; if (s >= n) s = n - 1; }
+    }
+    if (p & BTN_R) s += GRID_COLS * GRID_ROWS;
+    if (p & BTN_L) s -= GRID_COLS * GRID_ROWS;
+    l->sel = s;
+    grid_clamp(l);
+}
+
+/* An app as a little glass cube: its initials on the front with a shine
+ * sweeping over them, an arrow on top when there is an update. */
+typedef struct { char ini[3]; Color c; bool update; float phase; } Block;
+
+static void block_face(int face, float f, void *user) {
+    const Block *b = user;
+    if (face == CUBE_FRONT) {
+        float sc = 44 / font_height(1.0f);
+        font_draw_center(50, 50 - font_height(sc) / 2, sc, ui_alpha(C_TEXT, f), b->ini);
+        float sx = fmodf(b->phase, 180) - 40;
+        float x0 = sx < 3 ? 3 : sx, x1 = sx + 20 > 97 ? 97 : sx + 20;
+        if (x1 > x0) gfx_rect(x0, 3, x1 - x0, 94, RGBA(255, 255, 255, (u8)(46 * f)));
+    } else if (face == CUBE_TOP && b->update) {
+        float up[] = { 50, 16, 80, 52, 20, 52 };
+        gfx_poly(up, 3, ui_alpha(C_ACCENT, f));
+        gfx_rect(38, 52, 24, 30, ui_alpha(C_ACCENT, f));
+    }
+}
+
+static void block_cube(float cx, float cy, float size, float rx, float ry, const char *name, const char *key,
+                       bool known, bool update, float alpha) {
+    Block b;
+    ui_initials(name, b.ini);
+    b.c = known ? ui_app_color(key) : RGB(150, 150, 172);
+    b.update = update;
+    b.phase = video_frame_count() * 1.4f + (float)(key[0] * 37);
+    CubeStyle st = { b.c, RGBA(0, 0, 0, 0), ui_mix(b.c, RGB(255, 255, 255), 0.55f), alpha, 0, block_face, &b };
+    gfx_glass_cube(cx, cy, size, rx, ry, 0, &st);
+}
+
 /* ---- installed list filtering ---- */
 
 static int inst_items[MAX_INSTALLED];
@@ -77,8 +149,8 @@ static void build_installed(void) {
         inst_items[inst_nitems++] = i;
     }
     ls_inst.count = inst_nitems;
-    ls_inst.rows = LIST_ROWS;
-    ui_list_clamp(&ls_inst);
+    ls_inst.rows = GRID_ROWS;
+    grid_clamp(&ls_inst);
 }
 
 static int store_items[MAX_APPS];
@@ -166,6 +238,14 @@ static void details_draw(void) {
     ui_header(name, right);
     float x = UI_LEFT, y = 68, w = UI_RIGHT - UI_LEFT;
     ui_panel(x, y, w, 300);
+    {
+        int f = video_frame_count();
+        const char *key = a ? a->slug : in->slug;
+        Color c = a ? ui_app_color(key) : RGB(150, 150, 172);
+        float bx = x + w - 78, by = y + 84 + 4 * sinf(f * 0.04f);
+        ui_soft_ellipse(bx, y + 168, 70, 10, ui_alpha(c, 0.5f));
+        block_cube(bx, by, 36, 16, -26 + 22 * sinf(f * 0.015f), name, key, a != NULL, a && a->update, 1.0f);
+    }
     float ty = y + 14, lx = x + 18;
     char line[200];
     if (a) {
@@ -184,7 +264,7 @@ static void details_draw(void) {
         snprintf(line, sizeof line, "%s   %s   from %s", a->category[0] ? a->category : "app", sz, s ? s->name : "?");
         font_draw_shadow(lx, ty, FS_SMALL, C_TEXT_FAINT, line); ty += font_height(FS_SMALL) + 8;
         const char *desc = *a->description ? a->description : a->summary;
-        int n = font_draw_wrapped(lx, ty, FS_BODY, C_TEXT, desc, w - 36, 7, true);
+        int n = font_draw_wrapped(lx, ty, FS_BODY, C_TEXT, desc, w - 170, 8, true);
         ty += n * font_height(FS_BODY) * 1.05f + 6;
         if (a->nto_root) {
             snprintf(line, sizeof line, "Also puts %s at the root of the card.", a->to_root[0]);
@@ -209,12 +289,10 @@ static void details_draw(void) {
             const char *lab = action_label(det_actions[i]);
             float bw = font_width(lab, FS_BODY) + 36;
             bool hot = i == det_btn;
-            Color c = det_actions[i] == ACT_REMOVE ? RGBA(255, 120, 110, hot ? 200 : 60)
-                    : det_actions[i] == ACT_UPDATE ? RGBA(255, 214, 90, hot ? 220 : 70)
-                    : RGBA(255, 255, 255, hot ? 190 : 45);
-            gfx_round_rect(bx, by, bw, 38, 10, c);
-            if (hot) gfx_frame(bx, by, bw, 38, 2, RGBA(255, 255, 255, 200));
-            font_draw_shadow(bx + 18, by + 8, FS_BODY, hot ? RGB(30, 20, 60) : C_TEXT, lab);
+            Color base = det_actions[i] == ACT_REMOVE ? C_BAD : det_actions[i] == ACT_UPDATE ? C_ACCENT : ui_accent();
+            if (hot) gfx_round_rect(bx - 4, by - 4, bw + 8, 46, 14, ui_alpha(base, 0.35f));
+            ui_glass(bx, by, bw, 38, 12, RGBA(base.r, base.g, base.b, hot ? 200 : 50), 1.0f);
+            font_draw_shadow(bx + 18, by + 8, FS_BODY, C_TEXT, lab);
             bx += bw + 12;
         }
     }
@@ -257,8 +335,10 @@ static void sources_draw(void) {
         float y = LIST_Y + 6 + r * ROW_H;
         ui_row_highlight(x + 6, y, w - 12, ROW_H - 2, i == ls_src.sel);
         Color nc = s->enabled ? C_TEXT : C_TEXT_FAINT;
-        font_draw_clip(x + 20, y + 4, FS_BODY, nc, s->name, 330);
-        font_draw_clip(x + 20, y + 4 + font_height(FS_BODY) - 2, FS_SMALL, C_TEXT_FAINT, s->url, 400);
+        ui_led(x + 26, y + ROW_H / 2 - 1, !s->enabled ? RGB(110, 110, 130) : s->napps < 0 ? C_BAD : s->napps > 0 ? C_GOOD : C_ACCENT,
+               s->enabled && s->napps < 0);
+        font_draw_clip(x + 42, y + 4, FS_BODY, nc, s->name, 310);
+        font_draw_clip(x + 42, y + 4 + font_height(FS_BODY) - 2, FS_SMALL, C_TEXT_FAINT, s->url, 380);
         if (!s->enabled) ui_tag(x + w - 16, y + 12, "Off", C_TEXT_FAINT);
         else if (s->napps < 0) ui_tag(x + w - 16, y + 12, "Failed", C_BAD);
         else ui_tag(x + w - 16, y + 12, s->status, s->napps > 0 ? C_GOOD : C_TEXT_DIM);
@@ -273,7 +353,7 @@ static void sources_draw(void) {
 
 static int installed_update(u32 p) {
     build_installed();
-    ui_list_nav(&ls_inst, p);
+    grid_nav(&ls_inst, p);
     if (p & BTN_B) return SCR_MENU;
     if (p & BTN_Y) { updates_only = !updates_only; build_installed(); }
     if (p & BTN_X) store_request_refresh();
@@ -296,25 +376,62 @@ static void installed_draw(void) {
     build_installed();
     ui_header(updates_only ? "INSTALLED - UPDATES" : "INSTALLED", online_text());
     ui_busy_banner();
-    float x = UI_LEFT, w = UI_RIGHT - UI_LEFT;
-    ui_panel(x, LIST_Y, w, ROW_H * LIST_ROWS + 12);
-    if (!inst_nitems)
-        font_draw_center(SCREEN_W / 2, LIST_Y + 60, FS_BODY, C_TEXT_DIM,
-                         updates_only ? "Everything is up to date." : "No apps in sd:/apps yet. Visit the App store.");
-    for (int r = 0; r < LIST_ROWS && ls_inst.top + r < inst_nitems; r++) {
-        int i = inst_items[ls_inst.top + r];
-        Installed *in = catalog_installed(i);
+    int f = video_frame_count();
+    Color ac = ui_accent();
+    for (int slot = 0; slot < GRID_COLS * GRID_ROWS; slot++) {
+        int idx = ls_inst.top + slot;
+        float x0 = GRID_X + (slot % GRID_COLS) * CELL_W, y0 = GRID_Y + (slot / GRID_COLS) * CELL_H;
+        float cx = x0 + CELL_W / 2.0f, cy = y0 + 32;
+        if (idx >= inst_nitems) {       /* a free block */
+            gfx_round_rect(cx - 19, cy - 19, 38, 38, 6, RGBA(255, 255, 255, 8));
+            gfx_frame(cx - 19, cy - 19, 38, 38, 1, ui_alpha(ac, 0.2f));
+            gfx_rect(cx - 1.5f, cy - 1.5f, 3, 3, ui_alpha(ac, 0.4f));
+            continue;
+        }
+        Installed *in = catalog_installed(inst_items[idx]);
         App *a = in->app >= 0 ? catalog_app(in->app) : NULL;
-        float y = LIST_Y + 6 + r * ROW_H;
-        ui_row_highlight(x + 6, y, w - 12, ROW_H - 2, ls_inst.top + r == ls_inst.sel);
-        font_draw_clip(x + 20, y + 4, FS_BODY, C_TEXT, in->name, 360);
-        char sub[96];
+        bool hot = idx == ls_inst.sel, upd = a && a->update;
+        if (hot) {
+            /* the cursor: a glow and four corner brackets around the cell */
+            float pulse = 0.5f + 0.5f * sinf(f * 0.1f);
+            float bx = x0 + 4, by = y0, bw = CELL_W - 8, bh = CELL_H - 2, L = 12;
+            gfx_round_rect(bx, by, bw, bh, 10, ui_alpha(ac, 0.12f + 0.06f * pulse));
+            Color br = ui_alpha(ui_mix(ac, RGB(255, 255, 255), 0.4f), 0.7f + 0.3f * pulse);
+            gfx_rect(bx, by, L, 2, br); gfx_rect(bx, by, 2, L, br);
+            gfx_rect(bx + bw - L, by, L, 2, br); gfx_rect(bx + bw - 2, by, 2, L, br);
+            gfx_rect(bx, by + bh - 2, L, 2, br); gfx_rect(bx, by + bh - L, 2, L, br);
+            gfx_rect(bx + bw - L, by + bh - 2, L, 2, br); gfx_rect(bx + bw - 2, by + bh - L, 2, L, br);
+        }
+        float size = hot ? 21 : 17, ry = hot ? f * 1.5f : -28 + 6 * sinf(f * 0.03f + idx);
+        if (hot) cy -= 3 + 2 * sinf(f * 0.09f);
+        block_cube(cx, cy, size, 20, ry, in->name, in->slug, a != NULL || in->managed, upd, hot ? 1.0f : 0.8f);
+        if (upd) ui_led(cx + 26, cy - 22, C_ACCENT, true);
+        float sc = FS_SMALL * 0.85f, nw = font_width(in->name, sc);
+        Color nc = hot ? C_TEXT : C_TEXT_FAINT;
+        if (nw <= CELL_W - 10) font_draw_shadow(cx - nw / 2, y0 + CELL_H - 20, sc, nc, in->name);
+        else font_draw_clip(x0 + 5, y0 + CELL_H - 20, sc, nc, in->name, CELL_W - 10);
+    }
+    /* the selected app, like the memory card screen's info strip */
+    float x = UI_LEFT, w = UI_RIGHT - UI_LEFT, py = GRID_Y + GRID_ROWS * CELL_H + 8, ph = UI_BOTTOM - 10 - py;
+    ui_panel(x, py, w, ph);
+    if (!inst_nitems) {
+        font_draw_center(SCREEN_W / 2, py + ph / 2 - 10, FS_BODY, C_TEXT_DIM,
+                         updates_only ? "Everything is up to date." : "No apps in sd:/apps yet. Visit the App store.");
+    } else {
+        Installed *in = catalog_installed(inst_items[ls_inst.sel]);
+        App *a = in->app >= 0 ? catalog_app(in->app) : NULL;
+        font_draw_clip(x + 18, py + 10, FS_BODY, C_TEXT, in->name, 360);
+        char sub[112];
         if (in->managed && *in->version) snprintf(sub, sizeof sub, "Version %s   sd:/apps/%s", in->version, in->folder);
         else snprintf(sub, sizeof sub, "sd:/apps/%s/%s", in->folder, in->binary);
-        font_draw_clip(x + 20, y + 4 + font_height(FS_BODY) - 2, FS_SMALL, C_TEXT_FAINT, sub, 400);
-        if (a && a->update) { char t[40]; snprintf(t, sizeof t, "Update %s", a->version); ui_tag(x + w - 16, y + 12, t, C_ACCENT); }
-        else if (a) ui_tag(x + w - 16, y + 12, "Up to date", C_GOOD);
-        else ui_tag(x + w - 16, y + 12, "Not in a catalog", C_TEXT_FAINT);
+        font_draw_clip(x + 18, py + 12 + font_height(FS_BODY), FS_SMALL, C_TEXT_DIM, sub, w - 36);
+        if (a && *a->summary) font_draw_clip(x + 18, py + 14 + font_height(FS_BODY) + font_height(FS_SMALL), FS_SMALL, C_TEXT_FAINT, a->summary, w - 36);
+        if (a && a->update) { char t[40]; snprintf(t, sizeof t, "Update %s", a->version); ui_tag(x + w - 16, py + 12, t, C_ACCENT); }
+        else if (a) ui_tag(x + w - 16, py + 12, "Up to date", C_GOOD);
+        else ui_tag(x + w - 16, py + 12, "Not in a catalog", C_TEXT_FAINT);
+        char pos[32];
+        snprintf(pos, sizeof pos, "%d / %d", ls_inst.sel + 1, inst_nitems);
+        font_draw_right(x + w - 16, py + ph - 22, FS_SMALL, C_TEXT_FAINT, pos);
     }
     ui_footer(updates_only ? "A  Update    Y  Show all    X  Reload    B  Back"
                            : "A  Details    Y  Updates only    X  Reload    B  Back");
@@ -343,8 +460,10 @@ static void storescr_draw(void) {
     for (int i = 0; i < NCATS && !store_busy(); i++) {
         float cw = font_width(cat_names[i], FS_SMALL) + 18;
         bool hot = i == store_cat;
-        gfx_round_rect(cx, 70, cw, 24, 8, hot ? C_TILE_HOT : C_TILE);
-        font_draw_shadow(cx + 9, 72, FS_SMALL, hot ? RGB(30, 20, 60) : C_TEXT, cat_names[i]);
+        Color ac = ui_accent();
+        if (hot) gfx_round_rect(cx - 2, 68, cw + 4, 28, 12, ui_alpha(ac, 0.3f));
+        ui_glass(cx, 70, cw, 24, 10, hot ? RGBA(ac.r, ac.g, ac.b, 180) : C_TILE, 1.0f);
+        font_draw_shadow(cx + 9, 72, FS_SMALL, C_TEXT, cat_names[i]);
         cx += cw + 6;
     }
     float ly = LIST_Y;
@@ -359,10 +478,11 @@ static void storescr_draw(void) {
         App *a = catalog_app(store_items[ls_store.top + r]);
         float y = ly + 6 + r * ROW_H;
         ui_row_highlight(x + 6, y, w - 12, ROW_H - 2, ls_store.top + r == ls_store.sel);
-        font_draw_clip(x + 20, y + 4, FS_BODY, C_TEXT, a->name, 360);
+        ui_app_block(x + 18, y + 5, ROW_H - 12, a->name, a->slug, 1.0f);
+        font_draw_clip(x + 64, y + 4, FS_BODY, C_TEXT, a->name, 320);
         char sub[160];
         snprintf(sub, sizeof sub, "%s   %s", *a->author ? a->author : "", a->summary);
-        font_draw_clip(x + 20, y + 4 + font_height(FS_BODY) - 2, FS_SMALL, C_TEXT_FAINT, sub, 420);
+        font_draw_clip(x + 64, y + 4 + font_height(FS_BODY) - 2, FS_SMALL, C_TEXT_FAINT, sub, 380);
         if (a->update) { char t[40]; snprintf(t, sizeof t, "Update %s", a->version); ui_tag(x + w - 16, y + 12, t, C_ACCENT); }
         else if (a->installed >= 0) ui_tag(x + w - 16, y + 12, "Installed", C_GOOD);
         else { char sz[32]; if (a->size) ui_format_size(a->size, sz, sizeof sz); else snprintf(sz, sizeof sz, "v%s", a->version); ui_tag(x + w - 16, y + 12, sz, C_TEXT_DIM); }
@@ -417,7 +537,7 @@ static void settings_draw(void) {
         case SET_TLS: v = g_settings.verify_tls ? "On" : "Off"; break;
         case SET_EXIT_ACTION: v = g_settings.exit_action ? "Return to loader" : "Reboot"; break;
         }
-        if (v) ui_tag(x + w - 16, y + 12, v, C_ACCENT);
+        if (v) ui_tag(x + w - 16, y + 12, v, ui_mix(ui_accent(), RGB(255, 255, 255), 0.3f));
     }
     float ay = LIST_Y + ROW_H * SET_COUNT + 30;
     char line[460];
@@ -436,6 +556,7 @@ static void settings_draw(void) {
 
 void screens_open(Screen s) {
     cur = s;
+    enter_flash = 12;
     pending_remove = -1;
     if (s == SCR_INSTALLED) build_installed();
     if (s == SCR_STORE) build_store();
@@ -474,7 +595,18 @@ int screens_update(u32 p) {
     }
 }
 
+static Color section_accent(Screen s) {
+    switch (s) {
+    case SCR_SOURCES: return C_SOURCES;
+    case SCR_INSTALLED: return C_INSTALLED;
+    case SCR_SETTINGS: return C_SETTINGS;
+    default: return C_STORE;
+    }
+}
+
 void screens_draw(void) {
+    ui_set_accent(section_accent(cur == SCR_DETAILS ? (Screen)det_from : cur));
+    ui_background();
     switch (cur) {
     case SCR_SOURCES: sources_draw(); break;
     case SCR_INSTALLED: installed_draw(); break;
@@ -482,6 +614,10 @@ void screens_draw(void) {
     case SCR_SETTINGS: settings_draw(); break;
     case SCR_DETAILS: details_draw(); break;
     default: break;
+    }
+    if (enter_flash > 0) {
+        gfx_rect(0, 0, SCREEN_W, SCREEN_H, ui_alpha(ui_mix(ui_accent(), RGB(255, 255, 255), 0.6f), enter_flash / 24.0f));
+        enter_flash--;
     }
     ui_confirm_draw();
     osk_draw();
