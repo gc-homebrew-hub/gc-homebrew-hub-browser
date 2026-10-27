@@ -7,3 +7,5 @@ third_party/
 package/
 tests/build/
 data/emusd/sdcard.img
+tools/preview/build/
+tools/preview/out/

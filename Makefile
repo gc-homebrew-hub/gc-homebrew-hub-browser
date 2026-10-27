@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------------
 .SUFFIXES:
 
-ifeq (,$(filter test package clean,$(MAKECMDGOALS)))
+ifeq (,$(filter test preview package clean,$(MAKECMDGOALS)))
 ifeq ($(strip $(DEVKITPPC)),)
 $(error "DEVKITPPC is not set. Use the Docker command in README.md")
 endif
@@ -21,7 +21,7 @@ SOURCES		:=	source $(MBEDTLS)/library
 DATA		:=
 INCLUDES	:=	source
 
-ifeq (,$(filter test package clean,$(MAKECMDGOALS)))
+ifeq (,$(filter test preview package clean,$(MAKECMDGOALS)))
 ifeq ($(BUILD),$(notdir $(CURDIR)))
 else
 ifeq ($(wildcard $(MBEDTLS)/library/ssl_tls.c),)
@@ -76,7 +76,7 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES), -iquote $(CURDIR)/$(dir)) \
 
 export LIBPATHS	:=	-L$(LIBOGC_LIB) $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
-.PHONY: $(BUILD) clean test package
+.PHONY: $(BUILD) clean test preview package
 
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
@@ -89,6 +89,11 @@ clean:
 # "make test" builds and runs the host-side tests (no devkitPPC needed)
 test:
 	@$(MAKE) --no-print-directory -C tests
+
+# "make preview" renders the screens to tools/preview/out/*.png on the host
+# (software GX, a stand-in font; no devkitPPC needed)
+preview:
+	@$(MAKE) --no-print-directory -C tools/preview
 
 # What goes on the SD card: package/apps/gc-homebrew-hub-browser/ (build first)
 package:

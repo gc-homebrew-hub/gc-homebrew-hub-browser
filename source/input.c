@@ -6,6 +6,7 @@
 
 static u32 held, pressed, prev;
 static int hold_frames;
+static float stick[2], cstick[2];
 
 void input_init(void) { PAD_Init(); }
 
@@ -31,10 +32,26 @@ static u32 map(int chan) {
     return r;
 }
 
+static float axis(s8 v) {
+    float f = v / 80.0f;
+    if (f > -0.15f && f < 0.15f) return 0;
+    return f > 1 ? 1 : f < -1 ? -1 : f;
+}
+
+static void stick_max(float out[2], s8 x, s8 y) {
+    float fx = axis(x), fy = axis(y);
+    if (fx * fx + fy * fy > out[0] * out[0] + out[1] * out[1]) { out[0] = fx; out[1] = fy; }
+}
+
 void input_poll(void) {
     PAD_ScanPads();
     held = 0;
-    for (int i = 0; i < 4; i++) held |= map(i);
+    stick[0] = stick[1] = cstick[0] = cstick[1] = 0;
+    for (int i = 0; i < 4; i++) {
+        held |= map(i);
+        stick_max(stick, PAD_StickX(i), PAD_StickY(i));
+        stick_max(cstick, PAD_SubStickX(i), PAD_SubStickY(i));
+    }
     pressed = held & ~prev;
     const u32 dirs = BTN_UP | BTN_DOWN | BTN_LEFT | BTN_RIGHT;
     if (held & dirs) {
@@ -50,3 +67,7 @@ void input_poll(void) {
 
 u32 input_pressed(void) { return pressed; }
 u32 input_held(void) { return held; }
+
+void input_sticks(float *x, float *y, float *cx, float *cy) {
+    *x = stick[0]; *y = stick[1]; *cx = cstick[0]; *cy = cstick[1];
+}

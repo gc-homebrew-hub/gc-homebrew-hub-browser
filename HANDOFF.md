@@ -60,6 +60,38 @@ format is the only thing shared.
 - `make package` assembles `package/apps/gc-homebrew-hub-browser/` (boot.dol +
   cacert.pem); `data/cacert.pem` is the curl CA bundle.
 
+## The GameCube-menu look (2026-10-26)
+
+The owner asked for the console's own menu aesthetic. What that became:
+
+- Main menu: a see-through glass cube (`gfx_glass_cube` in `video.c`): far
+  faces darker, a solid core spinning inside, near faces with a gloss and
+  decals drawn on them with the normal 2D calls (`CubeFaceFn`, face units
+  0..100), glowing edges and corner pixels. Sections sit on faces: top =
+  Sources, bottom = Installed, left = Settings, right = Homebrew Hub (the store), front
+  and back = "GC / HOMEBREW / BROWSER". The D-pad turns that face three-quarters on,
+  the Control Stick leans the cube live, the C-stick spins it and it springs
+  back, opening flies square into the face (18 frames) and coming back zooms
+  out of it. Indigo background with a floor grid and drifting sparks.
+- Sections: a dark grid with pulsing "pixel" crossings and a scan line, each
+  section in its own neon accent (Sources blue, Installed green, Homebrew Hub
+  violet, Settings orange; `C_SOURCES` etc. in `ui.h`, `ui_set_accent`).
+  Panels, rows, tags, toasts, dialogs and keyboard are glossy translucent
+  glass (`ui_glass`). Footers draw the controller's buttons (green A, red B,
+  grey X/Y, yellow C-stick, ...) from the hint text (`ui_hints`).
+- Installed is a 6x3 grid of little glass cubes like the memory card screen:
+  initials on the front with a shine sweeping over them, a colour per app
+  (hash of the slug), an arrow on top and a pulsing pixel for an update, free
+  blocks drawn empty, an info strip for the selected app. The store list and
+  the details page use the same app blocks/cube.
+- The cube is painted back to front (convex, so no depth buffer and no
+  culling); facing is computed on the CPU, so it does not depend on GX's
+  winding convention.
+- `make preview` (tools/preview) renders all of this on the host through a
+  software GX; that is how it was checked. The devkitPPC build was NOT run
+  for these changes (the libogc2 image could not be pulled where they were
+  written): build it first and fix any warnings.
+
 ## What the Dolphin run on 2026-10-26 showed
 
 First time the program has run anywhere. Dolphin (built from source, no SD
@@ -112,9 +144,71 @@ Not covered by this run: the DOL launcher (`dol.c`) and
 hardware; libfat `rename` of directories on a real card (the image in memory
 does exercise the code path); `copy_to_root` with an existing folder.
 
+## What the second Dolphin run on 2026-10-27 showed
+
+Same setup, on this branch merged with main, so this covers the GameCube-menu
+look above. The devkitPPC build the look was never compiled with: it builds
+warning-free, `boot.dol` is 1,062,752 bytes. `make test` 59 checks, 0
+failures. `make preview` renders its 17 screens.
+
+On the console side, the new look draws correctly on real GX: the glass cube
+with its face decals (so `face_space` is right), the section tiles with their
+icons, the neon section backgrounds, the memory-card grid of app cubes under
+Installed, the app cube on the details page, and the controller button glyphs
+in the footers. Catalogs loaded over the emulated adapter again and a 4 KB
+and a 100 KB app both installed.
+
+Findings 1, 2 and 3 above all still reproduce. Two of them now have a line
+to change:
+
+- Finding 1 also affects the new status LED: `screens.c:338` picks its colour
+  from the same `napps`, so a source that failed but has a saved copy gets a
+  green light as well as a green pill.
+- Finding 3's cause is in hand: the font sheets are sampled with `GX_LINEAR`
+  (`font.c:29`) and `gfx_tex_quad` maps the cell's texel coordinates straight
+  to UVs with no half-texel inset, so every glyph blends in the column of the
+  one to its left. Insetting by half a texel, or `GX_NEAR` for the sheets,
+  should settle it. It is clearest on the X button glyph in every footer,
+  which reads `'X`.
+- Finding 4 needs correcting: the program does recover. A 542 KB download
+  failed and the details page came back with its Install button, so the read
+  timeout does fire; yesterday's "no timeout in four minutes" was the
+  emulator, not the program. The stall is Dolphin's adapter: while it hung,
+  the server socket sat in FIN_WAIT1 with 203 KB still queued and Dolphin's
+  own socket was ESTABLISHED with 88 KB unread, i.e. the bytes never reached
+  the guest. 100 KB is fine, 542 KB is not.
+
+New, and the most serious thing found so far:
+
+5. The network is brought up at start whatever the settings say, and nothing
+   bounds it. `store_init` submits `JOB_START` unconditionally
+   (`store.c:330-335`); "Load the catalogs when starting" is only consulted
+   afterwards, to decide whether to refresh (`store.c:349`); and `net_start`
+   calls libogc2's `if_config`, which takes no timeout and no retry count.
+   With no adapter the worker never comes back: it was still "Connecting to
+   the network" after three and a half minutes. While it runs, the details
+   page draws the progress row in place of Start/Reinstall/Remove and ignores
+   A, so an installed app cannot be started at all. Most GameCubes have no
+   Broadband Adapter, so this is worth settling before hardware testing:
+   either start the network only when something needs it, or run it so the
+   buttons stay live while it tries.
+6. An app listed in `installed.txt` whose folder is gone is still listed, with
+   its version and path, and offered for starting. `catalog_scan_card` drops
+   only the unmanaged entries before rescanning, so a folder deleted on a PC
+   leaves a phantom app behind.
+
+`dol.c` is still unverified. Dolphin ends the session the moment Start is
+pressed: twice in a row, once with a host-side "double free or corruption"
+and once with a fatal X error after the render window went away. The program
+does get as far as shutting the OS down, which is what `dol.c` does right
+before the jump, but whether the stub's copy-and-jump lands cannot be seen
+here. A few-KB test program is ready for a card (`tools/` has no copy of it;
+it is three dozen lines against libogc2 that paint the screen and print
+`argv[0]`), which is the quickest way to settle it on hardware.
+
 ## What has NOT been verified on hardware
 
-The Dolphin run above covers the drawing, the card and the network as far as
+The Dolphin runs above cover the drawing, the card and the network as far as
 an emulator can. In order of risk, what is left:
 
 1. The DOL stub and `SYS_ResetSystem(SYS_SHUTDOWN)` sequence (`dol.c`).
@@ -131,6 +225,10 @@ an emulator can. In order of risk, what is left:
 5. GX and the IPL font on a real video encoder: both draw correctly in
    Dolphin, so a black screen on the console points at `video_init`, and
    missing text at `SYS_InitFont` (returns 1 on success).
+6. The glass cube's face decals: they draw through a perspective projection,
+   so if the cube shows but the drawing on its faces is missing or in the
+   wrong place, look at `face_space` in `video.c`. Worth watching the frame
+   rate on the Installed grid (18 small cubes) too.
 
 ## How to test on the GameCube
 
