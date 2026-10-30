@@ -23,6 +23,10 @@ static void scopy(char *dst, size_t cap, const char *src) {
 
 const char *catalog_datadir(void) { return datadir; }
 
+static bool have_card;
+void catalog_set_card(bool present) { have_card = present; }
+bool catalog_have_card(void) { return have_card; }
+
 /* ---- sources ---- */
 
 int catalog_source_count(void) { return nsources; }

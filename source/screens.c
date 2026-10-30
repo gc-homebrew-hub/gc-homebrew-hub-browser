@@ -49,6 +49,7 @@ static const char *online_text(void) {
     if (store_busy()) return "";
     if (store_net_up()) snprintf(s, sizeof s, "Online  %s", net_ip_string());
     else snprintf(s, sizeof s, "Offline");
+    if (!catalog_have_card()) snprintf(s + strlen(s), sizeof s - strlen(s), "   No SD card");
     return s;
 }
 
@@ -209,7 +210,8 @@ static int details_update(u32 p) {
     if ((p & BTN_A) && det_nact) {
         switch (det_actions[det_btn]) {
         case ACT_INSTALL: case ACT_UPDATE:
-            if (!store_net_up()) ui_toast("No network connection", true);
+            if (!catalog_have_card()) ui_toast("No SD card: insert one to install apps", true);
+            else if (!store_net_up()) ui_toast("No network connection", true);
             else store_request_install(det_app);
             break;
         case ACT_START: launch(catalog_installed(det_inst)); break;
@@ -416,6 +418,7 @@ static void installed_draw(void) {
     ui_panel(x, py, w, ph);
     if (!inst_nitems) {
         font_draw_center(SCREEN_W / 2, py + ph / 2 - 10, FS_BODY, C_TEXT_DIM,
+                         !catalog_have_card() ? "No SD card. Insert one (SD2SP2, or an SD adapter in slot A or B)." :
                          updates_only ? "Everything is up to date." : "No apps in sd:/apps yet. Visit the Homebrew Hub.");
     } else {
         Installed *in = catalog_installed(inst_items[ls_inst.sel]);

@@ -116,6 +116,7 @@ void menu_draw(void) {
         else snprintf(status, sizeof status, "%s", store_step());
     } else if (store_net_up()) snprintf(status, sizeof status, "Online  %s", net_ip_string());
     else snprintf(status, sizeof status, "Offline");
+    if (!store_busy() && !catalog_have_card()) snprintf(status + strlen(status), sizeof status - strlen(status), "   No SD card");
     font_draw_right(UI_RIGHT, UI_TOP + 8, FS_SMALL, C_TEXT_DIM, status);
     ui_led(UI_RIGHT - font_width(status, FS_SMALL) - 12, UI_TOP + 8 + font_height(FS_SMALL) / 2,
            store_busy() ? C_ACCENT : store_net_up() ? C_GOOD : C_BAD, store_busy());

@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     (void)argc; (void)argv;
     video_init();
     input_init();
-    bool have_font = font_init();
+    font_init();
     bool have_card = mount_card();
     char path[160];
     if (have_card) {
@@ -37,8 +37,10 @@ int main(int argc, char **argv) {
         fs_join(path, sizeof path, DATA_DIR, "settings.ini");
         settings_load(path);
     } else settings_defaults();
+    catalog_set_card(have_card);
     catalog_init(DATA_DIR);
     store_init();
+    if (!have_card) ui_toast("No SD card: you can browse, but not install", true);
 
     Screen screen = SCR_MENU;
     menu_reset();
@@ -48,18 +50,20 @@ int main(int argc, char **argv) {
         store_poll();
         u32 p = input_pressed();
 
-        if (!have_card) {
-            if ((p & BTN_A) || ++retry_frames % 120 == 0) {
-                have_card = mount_card();
-                if (have_card) {
-                    fs_mkdirs(DATA_DIR);
-                    fs_join(path, sizeof path, DATA_DIR, "settings.ini");
-                    settings_load(path);
-                    catalog_init(DATA_DIR);
-                    ui_toast("SD card found", false);
-                }
+        /* look for a card now and then while there is none */
+        if (!have_card && !store_busy() && ++retry_frames % 120 == 0) {
+            have_card = mount_card();
+            if (have_card) {
+                fs_mkdirs(DATA_DIR);
+                fs_join(path, sizeof path, DATA_DIR, "settings.ini");
+                settings_load(path);
+                catalog_set_card(true);
+                catalog_init(DATA_DIR);
+                ui_toast("SD card found", false);
+                store_request_refresh();
             }
-        } else if (screen == SCR_MENU) {
+        }
+        if (screen == SCR_MENU) {
             int next = menu_update(p);
             if (next >= 0) { screen = (Screen)next; screens_open(screen); }
         } else {
@@ -69,15 +73,7 @@ int main(int argc, char **argv) {
         }
 
         video_frame_begin();
-        if (!have_card) {
-            ui_menu_background();
-            gfx_cube(320, 200, 50, 22, video_frame_count() * 0.5f, 0, C_CUBE, 1.0f);
-            if (have_font) {
-                font_draw_center(320, 290, FS_BIG, C_TEXT, "No SD card found");
-                font_draw_center(320, 330, FS_BODY, C_TEXT_DIM, "Insert a card (SD2SP2, or an SD adapter in slot A or B)");
-                font_draw_center(320, 356, FS_BODY, C_TEXT_DIM, "then press A to try again");
-            }
-        } else if (screen == SCR_MENU) menu_draw();
+        if (screen == SCR_MENU) menu_draw();
         else screens_draw();
         ui_toasts_update_draw();
         video_frame_end();
