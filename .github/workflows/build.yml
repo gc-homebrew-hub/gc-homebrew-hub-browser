@@ -1,0 +1,74 @@
+# Builds boot.dol in the libogc2 image (the same command as README.md), runs
+# the host tests, and attaches the SD card folder to the run as an artifact.
+# Pushing a tag such as v0.2 also publishes a GitHub Release with the SD card
+# folder as a zip; the tag must match VERSION in the Makefile.
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag against VERSION
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(sed -n 's/^VERSION[[:space:]]*:=[[:space:]]*//p' Makefile)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match VERSION $version in the Makefile"
+            exit 1
+          fi
+
+      - name: Fetch mbedTLS
+        run: ./get-deps.sh
+
+      # (GitHub runs bash with pipefail, so a failed make fails the step)
+      - name: Build boot.dol
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest \
+            sh -c 'make && make package' 2>&1 | tee build.log
+
+      # The build must stay warning-free (our sources; mbedTLS is not ours)
+      - name: Check for warnings
+        run: |
+          if grep -E "/source/[^ ]*: *warning:|^source/[^ ]*: *warning:" build.log; then
+            echo "::error::The build has warnings in source/"
+            exit 1
+          fi
+
+      - name: Host tests
+        run: make test
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gc-homebrew-hub-browser-${{ github.sha }}
+          path: package/
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: gc-homebrew-hub-browser-${{ github.sha }}
+          path: package
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zip="gc-homebrew-hub-browser-$GITHUB_REF_NAME.zip"
+          (cd package && zip -r "../$zip" apps)
+          gh release create "$GITHUB_REF_NAME" "$zip" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "GC Homebrew Hub Browser $GITHUB_REF_NAME" --generate-notes

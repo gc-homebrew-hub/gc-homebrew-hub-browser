@@ -59,6 +59,42 @@ format is the only thing shared.
   persistence, version compare, card scan, file helpers. All pass.
 - `make package` assembles `package/apps/gc-homebrew-hub-browser/` (boot.dol +
   cacert.pem); `data/cacert.pem` is the curl CA bundle.
+- GitHub Actions (`.github/workflows/build.yml`) builds every push in the
+  libogc2 image, fails on warnings in `source/`, runs `make test` and
+  attaches `package/` as an artifact. A `vX.Y` tag that matches `VERSION`
+  in the Makefile also publishes a GitHub Release with the zip.
+
+## The GameCube-menu look (2026-10-26)
+
+The owner asked for the console's own menu aesthetic. What that became:
+
+- Main menu: a see-through glass cube (`gfx_glass_cube` in `video.c`): far
+  faces darker, a solid core spinning inside, near faces with a gloss and
+  decals drawn on them with the normal 2D calls (`CubeFaceFn`, face units
+  0..100), glowing edges and corner pixels. Sections sit on faces: top =
+  Sources, bottom = Installed, left = Settings, right = Homebrew Hub (the store), front
+  and back = "GC / HOMEBREW / BROWSER". The D-pad turns that face three-quarters on,
+  the Control Stick leans the cube live, the C-stick spins it and it springs
+  back, opening flies square into the face (18 frames) and coming back zooms
+  out of it. Indigo background with a floor grid and drifting sparks.
+- Sections: a dark grid with pulsing "pixel" crossings and a scan line, each
+  section in its own neon accent (Sources blue, Installed green, Homebrew Hub
+  violet, Settings orange; `C_SOURCES` etc. in `ui.h`, `ui_set_accent`).
+  Panels, rows, tags, toasts, dialogs and keyboard are glossy translucent
+  glass (`ui_glass`). Footers draw the controller's buttons (green A, red B,
+  grey X/Y, yellow C-stick, ...) from the hint text (`ui_hints`).
+- Installed is a 6x3 grid of little glass cubes like the memory card screen:
+  initials on the front with a shine sweeping over them, a colour per app
+  (hash of the slug), an arrow on top and a pulsing pixel for an update, free
+  blocks drawn empty, an info strip for the selected app. The store list and
+  the details page use the same app blocks/cube.
+- The cube is painted back to front (convex, so no depth buffer and no
+  culling); facing is computed on the CPU, so it does not depend on GX's
+  winding convention.
+- `make preview` (tools/preview) renders all of this on the host through a
+  software GX; that is how it was checked. The devkitPPC build was NOT run
+  for these changes (the libogc2 image could not be pulled where they were
+  written): build it first and fix any warnings.
 
 ## What has NOT been verified
 
@@ -69,7 +105,10 @@ order of risk:
 1. GX rendering and the IPL font (`video.c`, `font.c`): first thing to look at
    on the console. If the screen stays black, suspect `video_init`; if there
    is no text, `SYS_InitFont` (returns 1 on success) or the sheet texture
-   setup.
+   setup. The glass cube draws text and shapes through a perspective
+   projection (face decals): if those are missing or misplaced on hardware
+   but the cube itself shows, look at `face_space` in `video.c`. Also check
+   the frame rate on the Installed grid (18 small cubes).
 2. TLS on the console: entropy comes from the time base; certificate dates
    depend on SNTP or the console clock. Failures show as toasts such as
    "TLS handshake failed (-0x....)" (mbedTLS error strings are compiled out).

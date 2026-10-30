@@ -6,3 +6,5 @@ third_party/
 .DS_Store
 package/
 tests/build/
+tools/preview/build/
+tools/preview/out/

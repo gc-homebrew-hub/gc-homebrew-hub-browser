@@ -69,8 +69,8 @@ int main(int argc, char **argv) {
         }
 
         video_frame_begin();
-        ui_background();
         if (!have_card) {
+            ui_menu_background();
             gfx_cube(320, 200, 50, 22, video_frame_count() * 0.5f, 0, C_CUBE, 1.0f);
             if (have_font) {
                 font_draw_center(320, 290, FS_BIG, C_TEXT, "No SD card found");
