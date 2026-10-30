@@ -1,6 +1,7 @@
 #!/bin/sh
-# Runs a .dol in Dolphin (the Flathub build) with no window and keeps a few
-# frames as PNGs. Used by CI; works on any Linux with flatpak.
+# Runs a .dol in Dolphin (the Flathub build, which has no dolphin-emu-nogui)
+# on a virtual X display and keeps a few frames as PNGs. Used by CI; works on
+# any Linux with flatpak and xvfb-run.
 #   tools/dolphin/run.sh boot.dol out-dir [seconds]
 # Dolphin has no GameCube SD adapter, so the program sees no card. The
 # Broadband Adapter is emulated (built-in, no TAP device needed).
@@ -32,8 +33,9 @@ DumpFramesAsImages = True
 EOF
 
 set +e
-timeout "$secs" flatpak run --filesystem="$(dirname "$dol")" --filesystem="$user" \
-    --command=dolphin-emu-nogui $app -p headless -u "$user" -e "$dol" > "$out/dolphin.log" 2>&1
+timeout "$secs" xvfb-run -a -s "-screen 0 1280x1024x24" \
+    flatpak run --filesystem="$(dirname "$dol")" --filesystem="$user" \
+    $app -b -u "$user" -e "$dol" > "$out/dolphin.log" 2>&1
 status=$?
 set -e
 cat "$out/dolphin.log"
