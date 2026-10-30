@@ -94,6 +94,11 @@ fails on warnings in `source/`, runs `make test`, and attaches the `package`
 folder to the run: open the run under Actions (or the pull request's Checks)
 and download the artifact.
 
+To try it in the Dolphin emulator on a Mac, see
+[docs/dolphin-macos.md](docs/dolphin-macos.md). Dolphin cannot emulate an
+SD2SP2 or other GameCube SD adapter yet, so it only gets as far as the "No
+SD card found" screen.
+
 `make test` builds and runs the host-side tests (JSON, SHA-256, catalog and
 file helpers) with the normal C compiler; no devkitPPC needed.
 
