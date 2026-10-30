@@ -110,6 +110,19 @@ to "Broadband Adapter (HLE)". Dolphin has no GameCube SD adapter, so the
 program runs without a card: the catalogs load and can be browsed, but
 nothing can be installed and Installed stays empty.
 
+### Releases
+
+Pushing a version tag publishes a GitHub Release with
+`gc-homebrew-hub-browser-<tag>.zip` (the `apps` folder for the card):
+
+1. Set `VERSION` in the `Makefile` (it is also the version shown under
+   Settings) and merge that to `main`.
+2. `git tag v0.2 && git push origin v0.2` on that commit (or create the tag
+   from GitHub's "Draft a new release" page).
+
+The workflow refuses a tag that does not match `VERSION`, so `v0.2` needs
+`VERSION := 0.2`. Release notes are generated from the merged pull requests.
+
 `make test` builds and runs the host-side tests (JSON, SHA-256, catalog and
 file helpers) with the normal C compiler; no devkitPPC needed.
 

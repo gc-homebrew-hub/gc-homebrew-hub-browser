@@ -1,5 +1,7 @@
 # Builds boot.dol in the libogc2 image (the same command as README.md), runs
 # the host tests, and attaches the SD card folder to the run as an artifact.
+# Pushing a tag such as v0.2 also publishes a GitHub Release with the SD card
+# folder as a zip; the tag must match VERSION in the Makefile.
 name: Build
 
 on:
@@ -19,6 +21,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check the tag against VERSION
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(sed -n 's/^VERSION[[:space:]]*:=[[:space:]]*//p' Makefile)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match VERSION $version in the Makefile"
+            exit 1
+          fi
 
       - name: Fetch mbedTLS
         run: ./get-deps.sh
@@ -75,6 +86,27 @@ jobs:
             boot.elf
             build/boot.elf.map
           if-no-files-found: warn
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: gc-homebrew-hub-browser-${{ github.sha }}
+          path: package
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zip="gc-homebrew-hub-browser-$GITHUB_REF_NAME.zip"
+          (cd package && zip -r "../$zip" apps)
+          gh release create "$GITHUB_REF_NAME" "$zip" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "GC Homebrew Hub Browser $GITHUB_REF_NAME" --generate-notes
 
   # Starts the build in Dolphin and keeps screenshots: as an artifact, and on
   # the dolphin-screenshots branch (latest main build only)
