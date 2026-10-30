@@ -94,6 +94,22 @@ fails on warnings in `source/`, runs `make test`, and attaches the `package`
 folder to the run: open the run under Actions (or the pull request's Checks)
 and download the artifact.
 
+On `main` (and when started by hand) a second job runs the new `boot.dol` in
+Dolphin on a virtual display (`tools/dolphin/run.sh`), fails if Dolphin
+reports a crash, and keeps a few frames: in the run's
+`dolphin-screenshots-<commit>` artifact and on the `dolphin-screenshots`
+branch, which always holds the latest `main` run. Starting the Build workflow
+by hand also takes crash addresses (Dolphin's `PC = ...`) or function names
+and prints where they are in `boot.elf`; each run keeps `boot.elf` and its
+map in a `-symbols-` artifact.
+
+### In Dolphin
+
+Open `boot.dol` with Dolphin. For the network, set Config → GameCube → SP1
+to "Broadband Adapter (HLE)". Dolphin has no GameCube SD adapter, so the
+program runs without a card: the catalogs load and can be browsed, but
+nothing can be installed and Installed stays empty.
+
 `make test` builds and runs the host-side tests (JSON, SHA-256, catalog and
 file helpers) with the normal C compiler; no devkitPPC needed.
 
