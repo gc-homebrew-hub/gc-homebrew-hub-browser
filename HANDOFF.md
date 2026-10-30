@@ -59,6 +59,10 @@ format is the only thing shared.
   persistence, version compare, card scan, file helpers. All pass.
 - `make package` assembles `package/apps/gc-homebrew-hub-browser/` (boot.dol +
   cacert.pem); `data/cacert.pem` is the curl CA bundle.
+- GitHub Actions (`.github/workflows/build.yml`) builds every push in the
+  libogc2 image, fails on warnings in `source/`, runs `make test` and
+  attaches `package/` as an artifact. A `vX.Y` tag that matches `VERSION`
+  in the Makefile also publishes a GitHub Release with the zip.
 
 ## The GameCube-menu look (2026-10-26)
 
