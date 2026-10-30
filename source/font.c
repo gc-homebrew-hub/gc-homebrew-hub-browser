@@ -66,23 +66,16 @@ static void draw_n(float x, float y, float scale, Color c, const char *t, int n)
 
 void font_draw(float x, float y, float scale, Color c, const char *t) { draw_n(x, y, scale, c, t, 0x7fffffff); }
 
-void font_draw_shadow(float x, float y, float scale, Color c, const char *t) {
-    float o = scale * 2.0f;
-    if (o < 1) o = 1;
-    draw_n(x + o, y + o, scale, RGBA(0, 0, 0, c.a / 2), t, 0x7fffffff);
-    draw_n(x, y, scale, c, t, 0x7fffffff);
-}
-
 void font_draw_center(float cx, float y, float scale, Color c, const char *t) {
-    font_draw_shadow(cx - font_width(t, scale) / 2, y, scale, c, t);
+    font_draw(cx - font_width(t, scale) / 2, y, scale, c, t);
 }
 
 void font_draw_right(float rx, float y, float scale, Color c, const char *t) {
-    font_draw_shadow(rx - font_width(t, scale), y, scale, c, t);
+    font_draw(rx - font_width(t, scale), y, scale, c, t);
 }
 
 void font_draw_clip(float x, float y, float scale, Color c, const char *t, float maxw) {
-    if (font_width(t, scale) <= maxw) { font_draw_shadow(x, y, scale, c, t); return; }
+    if (font_width(t, scale) <= maxw) { font_draw(x, y, scale, c, t); return; }
     float dots = font_width("...", scale);
     int n = 0; float w = 0;
     while (t[n]) {
@@ -90,9 +83,6 @@ void font_draw_clip(float x, float y, float scale, Color c, const char *t, float
         if (w + cw + dots > maxw) break;
         w += cw; n++;
     }
-    float o = scale * 2.0f; if (o < 1) o = 1;
-    draw_n(x + o, y + o, scale, RGBA(0, 0, 0, c.a / 2), t, n);
-    draw_n(x + o + w, y + o, scale, RGBA(0, 0, 0, c.a / 2), "...", 3);
     draw_n(x, y, scale, c, t, n);
     draw_n(x + w, y, scale, c, "...", 3);
 }
@@ -116,11 +106,7 @@ int font_draw_wrapped(float x, float y, float scale, Color c, const char *t, flo
         }
         const char *cut = end;
         if (*end && *end != '\n' && last_space && last_space > p) cut = last_space;
-        if (draw) {
-            float o = scale * 2.0f; if (o < 1) o = 1;
-            draw_n(x + o, y + lines * lh + o, scale, RGBA(0, 0, 0, c.a / 2), p, (int)(cut - p));
-            draw_n(x, y + lines * lh, scale, c, p, (int)(cut - p));
-        }
+        if (draw) draw_n(x, y + lines * lh, scale, c, p, (int)(cut - p));
         lines++;
         p = cut;
         while (*p == ' ') p++;

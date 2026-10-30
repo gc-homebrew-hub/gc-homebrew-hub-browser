@@ -6,7 +6,7 @@ CC      ?= cc
 CFLAGS  := -std=gnu11 -O2 -g -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Istub -I. -I../../source \
            -DAPP_VERSION='"preview"'
 FONT    ?= $(firstword $(wildcard /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf \
-                                  /Library/Fonts/Arial\ Bold.ttf /System/Library/Fonts/Supplemental/Arial\ Bold.ttf))
+                                  /System/Library/Fonts/Supplemental/Verdana.ttf /Library/Fonts/Arial.ttf))
 APP     := $(addprefix ../../source/,video.c font.c ui.c menu.c screens.c osk.c catalog.c json.c fsutil.c settings.c)
 SRC     := $(APP) gx_soft.c preview.c
 BIN     := build/preview

@@ -3,9 +3,10 @@
 A homebrew app store for the Nintendo GameCube, in the spirit of the Wii's
 Homebrew Browser. Browse catalogs of GameCube homebrew, install, update,
 remove and start apps on the SD card, without taking the card out of the
-console. It looks like the console's own menu: a see-through glass cube with
-a section on each side, dark glowing grids behind the sections, neon accents,
-and the console's own boot-menu font.
+console. It follows the look of the Swiss "System" theme
+([Arial-Bold/swiss-gc-system-UI](https://github.com/Arial-Bold/swiss-gc-system-UI)):
+a dark TV-screen backdrop, teal-black framed panels, frosted list rows, grey
+glass buttons with a gold selection ring, and the console's own boot-menu font.
 
 Written from scratch in C on [libogc2](https://github.com/extremscorner/libogc2).
 Not related to any web browser.
@@ -38,22 +39,27 @@ work offline).
 
 ## Using it
 
-| Direction | Section |
-|---|---|
-| Up | **Sources** (blue): the catalogs apps come from. A switches one on or off, X adds one (on-screen keyboard), Y removes one you added, Start reloads them. |
-| Down | **Installed** (green): everything in `sd:/apps`, as a grid of blocks like the memory card screen. A opens an app (start, update, reinstall, remove). Y shows only apps with an update; there, A asks to install it. |
-| Right | **Homebrew Hub** (violet): the apps the sources list. Left/Right pick a category, A opens the details page with Install. |
-| Left | **Settings** (orange): load the catalogs at start, certificate checking, what leaving does, and a Leave entry. |
+Every screen has the same frame: a title bar along the top, the bar of
+sections along the bottom, a side pane on the left (context and the buttons
+that work here) and a list on the right, with the selected row's description
+in the indigo bar under it.
 
-Press a direction twice (or a direction then A) to open a section; the cube
-turns that face toward you and flies into it. B goes back to the cube. The
-Control Stick leans the cube while you hold it, and the C-stick spins it
-freely (it springs back when you let go). X on the cube reloads the catalogs.
+| Section | |
+|---|---|
+| **Hub** | the apps the sources list. Left/Right pick a category, A opens the details page (Install, Update, Start, Remove). |
+| **Installed** | everything in `sd:/apps`. A opens an app. Y shows only apps with an update; there, A asks to install it. The gold count on the button is the number of updates. |
+| **Sources** | the catalogs apps come from. A switches one on or off, X adds one (on-screen keyboard), Y removes one you added, Start reloads them. |
+| **Settings** | load the catalogs at start, certificate checking, what leaving does, and a Leave entry. |
+| **Exit** | reboots the GameCube or returns to the loader (Settings picks which), after asking. |
+
+The program opens on the Hub. B moves down into the bar of sections (B again
+or Up moves back), Left/Right pick a section and A opens it; on a details page
+B goes back to the list. L/R page through long lists, X reloads the catalogs.
 
 | | |
 |---|---|
-| ![The main menu](docs/screenshots/menu.png) | ![Installed](docs/screenshots/installed.png) |
-| ![Homebrew Hub](docs/screenshots/homebrew-hub.png) | ![Sources](docs/screenshots/sources.png) |
+| ![Homebrew Hub](docs/screenshots/homebrew-hub.png) | ![App details](docs/screenshots/details.png) |
+| ![Installed](docs/screenshots/installed.png) | ![Sources](docs/screenshots/sources.png) |
 
 These are renders from `make preview` (below), with a stand-in font; on the
 console the text is the IPL font.
@@ -123,8 +129,8 @@ drawing code on hardware.
 
 | Module | Role |
 |---|---|
-| `video.c`, `font.c` | GX setup, 2D primitives, the glass cube (with drawing on its faces), text with the IPL font |
-| `menu.c`, `screens.c`, `ui.c`, `osk.c` | the cube menu, the four sections, the look (palette, grid backgrounds, glass panels, button glyphs, icons), keyboard |
+| `video.c`, `font.c` | GX setup, 2D primitives, text with the IPL font |
+| `menu.c`, `screens.c`, `ui.c`, `osk.c` | the frame (title bar, bar of sections), the sections, the look (backdrop, panels, rows, buttons, gold ring, description bar, icons), keyboard |
 | `catalog.c`, `json.c` | sources, catalog parsing, the installed list, versions |
 | `store.c` | the worker thread: network start, catalog refresh, install, remove |
 | `net.c` | DHCP, DNS, SNTP, HTTP/HTTPS client (mbedTLS) |

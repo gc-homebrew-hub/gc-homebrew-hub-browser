@@ -40,8 +40,7 @@ int main(int argc, char **argv) {
     catalog_init(DATA_DIR);
     store_init();
 
-    Screen screen = SCR_MENU;
-    menu_reset();
+    screens_open(SCR_STORE);
     int retry_frames = 0;
     while (SYS_MainLoop()) {
         input_poll();
@@ -59,26 +58,32 @@ int main(int argc, char **argv) {
                     ui_toast("SD card found", false);
                 }
             }
-        } else if (screen == SCR_MENU) {
+        } else if (menu_focused() && !screens_modal()) {
             int next = menu_update(p);
-            if (next >= 0) { screen = (Screen)next; screens_open(screen); }
+            if (next >= 0) screens_open((Screen)next);
         } else {
             int next = screens_update(p);
-            if (next == SCR_MENU) { screen = SCR_MENU; menu_reset(); }
-            else if (next >= 0) { screen = (Screen)next; screens_open(screen); }
+            if (next == SCR_DOCK) menu_focus();
+            else if (next >= 0) screens_open((Screen)next);
         }
 
         video_frame_begin();
+        ui_backdrop();
         if (!have_card) {
-            ui_menu_background();
-            gfx_cube(320, 200, 50, 22, video_frame_count() * 0.5f, 0, C_CUBE, 1.0f);
+            menu_draw(false);
             if (have_font) {
-                font_draw_center(320, 290, FS_BIG, C_TEXT, "No SD card found");
-                font_draw_center(320, 330, FS_BODY, C_TEXT_DIM, "Insert a card (SD2SP2, or an SD adapter in slot A or B)");
-                font_draw_center(320, 356, FS_BODY, C_TEXT_DIM, "then press A to try again");
+                float w = 440, h = 120, x = (SCREEN_W - w) / 2, y = 190;
+                ui_panel(x, y, w, h);
+                ui_desc_bar(x + 12, y + 12, w - 24, 28);
+                font_draw(x + 22, y + 12 + (28 - font_height(FS_BODY)) / 2, FS_BODY, C_TEXT, "No SD card found");
+                font_draw(x + 22, y + 54, FS_SMALL, C_TEXT_DIM, "Insert a card (SD2SP2, or an SD adapter in slot A or B).");
+                ui_hints(x + 22, y + 82, "A  Try again");
             }
-        } else if (screen == SCR_MENU) menu_draw();
-        else screens_draw();
+        } else {
+            screens_draw(!menu_focused());
+            menu_draw(true);
+            screens_draw_overlays();
+        }
         ui_toasts_update_draw();
         video_frame_end();
     }

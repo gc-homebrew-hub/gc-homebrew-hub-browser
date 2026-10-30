@@ -16,7 +16,7 @@ CELL, FIRST, LAST, COLS = 24, 32, 255, 16
 def main():
     if len(sys.argv) != 3:
         sys.exit(__doc__)
-    font = ImageFont.truetype(sys.argv[1], 19)
+    font = ImageFont.truetype(sys.argv[1], 19, layout_engine=ImageFont.Layout.BASIC)
     rows = (LAST - FIRST + COLS) // COLS
     sheet = Image.new("L", (COLS * CELL, rows * CELL), 0)
     draw = ImageDraw.Draw(sheet)

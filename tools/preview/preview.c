@@ -126,28 +126,28 @@ static void make_card(void) {
 
 /* ---- the frame loop of main.c, driven by the script ---- */
 
-static Screen screen = SCR_MENU;
-
 static void frame(u32 p, bool draw) {
     pressed = p;
-    if (screen == SCR_MENU) {
+    if (menu_focused() && !screens_modal()) {
         int next = menu_update(p);
-        if (next >= 0) { screen = (Screen)next; screens_open(screen); }
+        if (next >= 0) screens_open((Screen)next);
     } else {
         int next = screens_update(p);
-        if (next == SCR_MENU) { screen = SCR_MENU; menu_reset(); }
-        else if (next >= 0) { screen = (Screen)next; screens_open(screen); }
+        if (next == SCR_DOCK) menu_focus();
+        else if (next >= 0) screens_open((Screen)next);
     }
     soft_enabled = draw;
     video_frame_begin();
-    if (screen == SCR_MENU) menu_draw();
-    else screens_draw();
+    ui_backdrop();
+    screens_draw(!menu_focused());
+    menu_draw(true);
+    screens_draw_overlays();
     ui_toasts_update_draw();
     video_frame_end();
 }
 
 static void press(u32 p) { frame(p, false); }
-static void wait(int n) { while (n-- > 0) frame(0, false); }
+static void idle(int n) { while (n-- > 0) frame(0, false); }
 
 static void shot(const char *name) {
     frame(0, true);
@@ -166,39 +166,39 @@ static void shot(const char *name) {
     printf("%s\n", path);
 }
 
+/* opens a section from the bar along the bottom: B into the bar, over, A */
+static void section(int steps_right) {
+    press(BTN_B);
+    for (int i = 0; i < steps_right; i++) press(BTN_RIGHT);
+    for (int i = 0; i < -steps_right; i++) press(BTN_LEFT);
+    press(BTN_A);
+}
+
 int main(int argc, char **argv) {
     if (argc < 2 || !soft_load_font(argv[1])) { fprintf(stderr, "usage: preview FONT.bin (from font_atlas.py)\n"); return 1; }
     video_init();
     if (!font_init()) { fprintf(stderr, "font_init failed\n"); return 1; }
     make_card();
-    menu_reset();
+    screens_open(SCR_STORE);
 
-    wait(60);                    shot("01-menu-homebrew-hub");
-    press(BTN_UP); wait(40);     shot("02-menu-sources");
-    press(BTN_LEFT); wait(40);   shot("03-menu-settings");
-    press(BTN_DOWN); wait(30);
-    stick[2] = 0.9f; stick[3] = 0.35f;
-    wait(14);                    shot("04-menu-c-stick");
-    stick[2] = stick[3] = 0;
-    wait(40);                    shot("05-menu-installed");
-    press(BTN_A); wait(8);       shot("06-flying-in");
-    wait(30);                    shot("07-installed");
-    press(BTN_RIGHT); press(BTN_RIGHT); wait(20); shot("08-installed-update");
-    press(BTN_B); wait(4);       shot("09-back-to-cube");
-    press(BTN_RIGHT); wait(20); press(BTN_A); wait(40); shot("10-homebrew-hub");
-    press(BTN_DOWN); press(BTN_DOWN); press(BTN_A); wait(40); shot("11-details");
+    idle(10);                                  shot("01-homebrew-hub");
+    press(BTN_RIGHT); press(BTN_RIGHT); idle(4); shot("02-hub-emulators");
+    press(BTN_LEFT); press(BTN_LEFT); press(BTN_DOWN); press(BTN_DOWN);
+    press(BTN_A); idle(4);                     shot("03-details");
     busy = true; step_text = "Downloading"; job = "Flashcube"; progress = 0.62f;
-    wait(2);                     shot("12-details-installing");
+    idle(2);                                   shot("04-details-installing");
     busy = false;
-    press(BTN_B); press(BTN_B); wait(20);
-    press(BTN_UP); wait(20); press(BTN_A); wait(40); shot("13-sources");
-    press(BTN_X); wait(4); press(BTN_RIGHT); press(BTN_RIGHT); wait(10); shot("14-keyboard");
-    press(BTN_START); wait(20);
-    press(BTN_B); wait(20);
-    press(BTN_LEFT); wait(20); press(BTN_A); wait(40); shot("15-settings");
-    for (int i = 0; i < 4; i++) press(BTN_DOWN);
-    press(BTN_A); wait(4);       shot("16-confirm");
+    press(BTN_B); press(BTN_B); press(BTN_RIGHT); idle(30); shot("05-section-bar");
+    press(BTN_A); idle(4);                     shot("06-installed");
+    press(BTN_Y); idle(4);                     shot("07-installed-updates");
+    press(BTN_A); idle(4);                     shot("08-confirm");
+    press(BTN_B); press(BTN_Y);
+    section(1); idle(4);                       shot("09-sources");
+    press(BTN_X); idle(4); press(BTN_RIGHT); press(BTN_RIGHT); idle(10); shot("10-keyboard");
+    press(BTN_START); idle(4);
+    section(1); idle(4);                       shot("11-settings");
     ui_toast("Flashcube 2.1 installed", false);
-    press(BTN_B); wait(10);      shot("17-toast");
+    ui_toast("Mac on the LAN: could not connect (timed out)", true);
+    idle(10);                                  shot("12-toasts");
     return 0;
 }

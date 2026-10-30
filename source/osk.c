@@ -61,44 +61,37 @@ int osk_update(u32 p) {
     return 0;
 }
 
-static void key_cap(float x, float y, float w, float h, bool hot) {
-    Color ac = ui_accent();
-    if (hot) gfx_round_rect(x - 2, y - 2, w + 4, h + 4, 9, ui_alpha(ac, 0.4f));
-    ui_glass(x, y, w, h, 7, hot ? RGBA(ac.r, ac.g, ac.b, 200) : C_TILE, 1.0f);
+/* A key: grey glass, the gold ring on the one under the cursor */
+static void key_cap(float x, float y, float w, float h, bool hot, const char *label, float scale) {
+    ui_button(x, y, w, h, false);
+    if (hot) ui_ring(x, y, w, h, false);
+    font_draw_center(x + w / 2, y + (h - font_height(scale)) / 2, scale, C_TEXT, label);
 }
 
 void osk_draw(void) {
     if (!k.active) return;
-    Color ac = ui_accent();
-    gfx_rect(0, 0, SCREEN_W, SCREEN_H, RGBA(0, 0, 10, 150));
-    float w = 540, h = 330, x = (SCREEN_W - w) / 2, y = (SCREEN_H - h) / 2;
-    gfx_round_rect(x - 3, y - 3, w + 6, h + 6, 17, ui_alpha(ac, 0.3f));
-    ui_glass(x, y, w, h, 14, ui_mix(RGBA(36, 28, 90, 235), RGBA(ac.r, ac.g, ac.b, 235), 0.15f), 1.0f);
-    font_draw_shadow(x + 20, y + 14, FS_BODY, C_TEXT_DIM, k.title);
-    /* the text field */
-    gfx_round_rect(x + 20, y + 44, w - 40, 34, 8, RGBA(0, 0, 0, 130));
-    gfx_rect(x + 28, y + 76, w - 56, 1, ui_alpha(ac, 0.7f));
-    float tw = font_width(k.text, FS_BODY);
-    float tx = x + 30, maxw = w - 60;
+    gfx_rect(0, 0, SCREEN_W, SCREEN_H, RGBA(0, 0, 0, 150));
+    float w = 548, h = 338, x = (SCREEN_W - w) / 2, y = (SCREEN_H - h) / 2;
+    ui_panel(x, y, w, h);
+    ui_desc_bar(x + 12, y + 12, w - 24, 26);
+    font_draw(x + 22, y + 12 + (26 - font_height(FS_SMALL)) / 2, FS_SMALL, C_TEXT, k.title);
+    /* the text field: a dark groove, the caret in gold */
+    float fx = x + 20, fy = y + 50, fw = w - 40, fh = 30;
+    ui_track(fx, fy, fw, fh);
+    float tw = font_width(k.text, FS_BODY), tx = fx + 10, maxw = fw - 24;
     if (tw > maxw) tx -= tw - maxw;
-    font_draw(tx, y + 50, FS_BODY, C_TEXT, k.text);
-    if ((video_frame_count() / 30) % 2 == 0) gfx_rect(tx + tw + 2, y + 50, 2, font_height(FS_BODY), ac);
+    float ty = fy + (fh - font_height(FS_BODY)) / 2;
+    font_draw(tx, ty, FS_BODY, C_TEXT, k.text);
+    if ((video_frame_count() / 30) % 2 == 0) gfx_rect(tx + tw + 2, ty, 2, font_height(FS_BODY), C_GOLD);
     /* keys */
-    float kx = x + 20, ky = y + 94, kw = (w - 40) / COLS, kh = 40;
+    float kx = x + 20, ky = y + 94, kw = (w - 40) / COLS, kh = 38;
     for (int r = 0; r < ROWS; r++)
         for (int c = 0; c < COLS; c++) {
-            bool hot = k.row == r && k.col == c;
-            float px = kx + c * kw, py = ky + r * kh;
-            key_cap(px + 2, py + 2, kw - 4, kh - 4, hot);
             char s[2] = { k.caps ? (char)toupper((unsigned char)rows[r][c]) : rows[r][c], 0 };
-            font_draw_center(px + kw / 2, py + 8, FS_BODY, C_TEXT, s);
+            key_cap(kx + c * kw + 3, ky + r * kh + 3, kw - 6, kh - 6, k.row == r && k.col == c, s, FS_BODY);
         }
-    float sy = ky + ROWS * kh + 6, sw = (w - 40) / NSPECIAL;
-    for (int c = 0; c < NSPECIAL; c++) {
-        bool hot = k.row == ROWS && k.col == c;
-        float px = kx + c * sw;
-        key_cap(px + 2, sy + 2, sw - 4, kh - 4, hot);
-        font_draw_center(px + sw / 2, sy + 10, FS_SMALL, C_TEXT, specials[c]);
-    }
-    ui_hints(x + 20, y + h - 28, "A  Type    B  Delete    Y  Caps    Z  Space    Start  Done", 1.0f);
+    float sy = ky + ROWS * kh + 4, sw = (w - 40) / NSPECIAL;
+    for (int c = 0; c < NSPECIAL; c++)
+        key_cap(kx + c * sw + 3, sy + 3, sw - 6, kh - 6, k.row == ROWS && k.col == c, specials[c], FS_SMALL);
+    ui_hints(x + 20, y + h - 26, "A  Type    B  Delete    Y  Caps    Z  Space    Start  Done");
 }

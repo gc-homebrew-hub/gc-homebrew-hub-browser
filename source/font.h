@@ -8,8 +8,6 @@ float font_height(float scale);                   /* line height in pixels */
 float font_width(const char *text, float scale);
 float font_width_n(const char *text, int n, float scale);
 void  font_draw(float x, float y, float scale, Color c, const char *text);
-/* GameCube-menu style: white text over a soft dark shadow */
-void  font_draw_shadow(float x, float y, float scale, Color c, const char *text);
 void  font_draw_center(float cx, float y, float scale, Color c, const char *text);
 void  font_draw_right(float rx, float y, float scale, Color c, const char *text);
 /* Draws at most `maxw` pixels wide, ending with "..." when cut. */
