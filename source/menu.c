@@ -10,6 +10,7 @@
 #include "net.h"
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 enum { D_NONE = -1, D_UP, D_DOWN, D_LEFT, D_RIGHT };
 
