@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       crash_pc:
-        description: "Addresses to look up in boot.elf (a crash's PC or LR, e.g. 0x801a6d78), separated by spaces"
+        description: "Addresses to look up in boot.elf (a crash's PC or LR, e.g. 0x801a6d78) or function names to disassemble, separated by spaces"
         required: false
         default: ""
 
@@ -47,9 +47,15 @@ jobs:
           docker run --rm -e CRASH_PC -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest sh -c '
             for a in $CRASH_PC; do
               echo "== $a"
-              $DEVKITPPC/bin/powerpc-eabi-addr2line -f -i -C -e boot.elf "$a"
-              s=$(printf "0x%x" $(( a - 0x40 ))); e=$(printf "0x%x" $(( a + 0x20 )))
-              $DEVKITPPC/bin/powerpc-eabi-objdump -d -l --start-address=$s --stop-address=$e boot.elf | tail -n +7
+              case "$a" in
+              0x*)
+                $DEVKITPPC/bin/powerpc-eabi-addr2line -f -i -C -e boot.elf "$a"
+                s=$(printf "0x%x" $(( a - 0x40 ))); e=$(printf "0x%x" $(( a + 0x20 )))
+                $DEVKITPPC/bin/powerpc-eabi-objdump -d -l --start-address=$s --stop-address=$e boot.elf | tail -n +7 ;;
+              *)
+                # a function name: disassemble all of it
+                $DEVKITPPC/bin/powerpc-eabi-objdump -d --disassemble="$a" boot.elf | tail -n +7 ;;
+              esac
             done'
 
       - name: Host tests
