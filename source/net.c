@@ -21,6 +21,10 @@
 #include <mbedtls/platform_time.h>
 #include <mbedtls/net_sockets.h>
 #include <psa/crypto.h>
+#ifdef HB_TLS_DEBUG
+#include <mbedtls/debug.h>
+#include <mbedtls/error.h>
+#endif
 
 #define READ_TIMEOUT_MS   20000
 #define POLL_SLICE_MS     250
@@ -560,6 +564,16 @@ static bool sock_connect(const Url *u, s32 *out, char *err, size_t errlen)
 /* ------------------------------------------------------------------------- */
 /* Connection (plain or TLS)                                                  */
 
+#ifdef HB_TLS_DEBUG
+/* Host test builds only (tests/net): mbedTLS's own trace of the handshake */
+extern int hb_tls_debug_level;
+static void tls_debug(void *ctx, int level, const char *file, int line, const char *msg)
+{
+    (void) ctx;
+    printf("   [tls %d] %s:%d: %s", level, file, line, msg);
+}
+#endif
+
 typedef struct {
     s32 sock;
     bool tls;
@@ -650,6 +664,10 @@ static bool conn_open(Conn *c, const Url *u, NetReq *r)
         goto tls_fail;
     }
     mbedtls_ssl_conf_rng(&c->conf, mbedtls_ctr_drbg_random, &s_drbg);
+#ifdef HB_TLS_DEBUG
+    mbedtls_ssl_conf_dbg(&c->conf, tls_debug, NULL);
+    mbedtls_debug_set_threshold(hb_tls_debug_level);
+#endif
     if (s_ca_loaded) {
         mbedtls_ssl_conf_authmode(&c->conf, MBEDTLS_SSL_VERIFY_REQUIRED);
         mbedtls_ssl_conf_ca_chain(&c->conf, &s_ca, NULL);
@@ -690,6 +708,13 @@ static bool conn_open(Conn *c, const Url *u, NetReq *r)
 
 tls_fail:
     snprintf(r->err, sizeof r->err, "TLS handshake failed (-0x%04X)", (unsigned) -ret);
+#ifdef HB_TLS_DEBUG
+    {
+        char e[160];
+        mbedtls_strerror(ret, e, sizeof e);
+        printf("   handshake failed: -0x%04X %s\n", (unsigned) -ret, e);
+    }
+#endif
     conn_close(c);
     return false;
 }

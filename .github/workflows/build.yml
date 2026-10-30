@@ -108,6 +108,38 @@ jobs:
           gh release create "$GITHUB_REF_NAME" "$zip" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "GC Homebrew Hub Browser $GITHUB_REF_NAME" --generate-notes
 
+  # net.c's HTTPS client built for Linux (tests/net) against real servers,
+  # with mbedTLS's handshake trace: tells our TLS code apart from Dolphin's
+  # emulated network adapter when a fetch fails in the emulator
+  nettest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch mbedTLS
+        run: ./get-deps.sh
+
+      - name: Build
+        run: make -C tests/net
+
+      - name: Without certificates (as in Dolphin), with the handshake trace
+        run: |
+          tests/net/build/nettest -v 2 \
+            https://raw.githubusercontent.com/michaellunzer/gc-homebrew-hub/main/sources.json
+
+      - name: Without certificates, other servers
+        if: always()
+        run: |
+          tests/net/build/nettest https://example.com/ https://www.google.com/ \
+            https://github.com/ https://objects.githubusercontent.com/
+
+      - name: With the CA bundle
+        if: always()
+        run: |
+          tests/net/build/nettest -ca data/cacert.pem \
+            https://raw.githubusercontent.com/michaellunzer/gc-homebrew-hub/main/sources.json \
+            https://example.com/
+
   # Starts the build in Dolphin and keeps screenshots: as an artifact, and on
   # the dolphin-screenshots branch (latest main build only)
   dolphin:

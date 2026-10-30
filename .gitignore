@@ -8,3 +8,4 @@ package/
 tests/build/
 tools/preview/build/
 tools/preview/out/
+tests/net/build/
