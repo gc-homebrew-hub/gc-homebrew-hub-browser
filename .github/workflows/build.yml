@@ -5,6 +5,11 @@ name: Build
 on:
   push:
   workflow_dispatch:
+    inputs:
+      crash_pc:
+        description: "Addresses to look up in boot.elf (a crash's PC or LR, e.g. 0x801a6d78), separated by spaces"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -32,6 +37,21 @@ jobs:
             exit 1
           fi
 
+      # Turns crash addresses (Dolphin's "PC = ...", or a backtrace) into
+      # function and line, against the boot.elf this run built
+      - name: Look up crash addresses
+        if: ${{ inputs.crash_pc != '' }}
+        env:
+          CRASH_PC: ${{ inputs.crash_pc }}
+        run: |
+          docker run --rm -e CRASH_PC -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest sh -c '
+            for a in $CRASH_PC; do
+              echo "== $a"
+              $DEVKITPPC/bin/powerpc-eabi-addr2line -f -i -C -e boot.elf "$a"
+              s=$(printf "0x%x" $(( a - 0x40 ))); e=$(printf "0x%x" $(( a + 0x20 )))
+              $DEVKITPPC/bin/powerpc-eabi-objdump -d -l --start-address=$s --stop-address=$e boot.elf | tail -n +7
+            done'
+
       - name: Host tests
         run: make test
 
@@ -40,3 +60,12 @@ jobs:
           name: gc-homebrew-hub-browser-${{ github.sha }}
           path: package/
           if-no-files-found: error
+
+      # The symbols that go with this boot.dol, for looking up crashes later
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gc-homebrew-hub-browser-symbols-${{ github.sha }}
+          path: |
+            boot.elf
+            build/boot.elf.map
+          if-no-files-found: warn
