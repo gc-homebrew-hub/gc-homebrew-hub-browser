@@ -77,10 +77,9 @@ cannot be started this way; start those from Swiss.
 ## Where the apps come from
 
 The default source list is fetched from the
-[gc-homebrew-hub](https://github.com/gc-homebrew-hub/gc-homebrew-hub) repository
-(`sources.json`; that repository is still local only, so the default fails until it is published), and every source is an `index.json` in catalog format 1.
-That repository's README explains how to add an app or a source with a pull
-request. Any web server can host a source; add its `index.json` address under
+[gc-homebrew-hub-catalog](https://github.com/gc-homebrew-hub/gc-homebrew-hub-catalog) repository
+(`sources.json`), and every source is an `index.json` in catalog format 1.
+That repository's README explains how to add an app with a pull request. Any web server can host a source; add its `index.json` address under
 Sources.
 
 ## Building
