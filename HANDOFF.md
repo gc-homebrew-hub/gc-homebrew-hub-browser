@@ -26,6 +26,11 @@ confirming again installs it.
 | gc-homebrew-hub (the catalog, formerly cubebrowser-apps) | `~/Documents/GitHub/gc-homebrew-hub` | none yet | local only; the default source URL expects it at `gc-homebrew-hub/gc-homebrew-hub`; do not create or push it without being asked |
 | CubeBrowser (web browser) | `~/Documents/GitHub/Cubebrowser`, worktree branch `claude/cubebrowser-homebrew-apps-9f7d9c` | origin is upstream `Arial-Bold/Cubebrowser`, never pushed | contains the first, in-browser version of the store (`about:apps`). The owner decided the two should be separate and to leave that branch as it is for now. Never push, fork or open anything upstream from it. |
 
+On 2026-10-31 this repository moved from `michaellunzer` to the
+`gc-homebrew-hub` organization (GitHub redirects the old address); the
+catalog is meant to live there too. As of that date the catalog folder was
+no longer at `~/Documents/GitHub/gc-homebrew-hub` and is not on GitHub.
+
 History: the store was first built inside CubeBrowser (commits a5af82d,
 f5cd0e7, a3b3309, b8c210e on that branch, with a host test harness under
 `tests/hbstore`). On 2026-10-20 the owner asked for a standalone program
