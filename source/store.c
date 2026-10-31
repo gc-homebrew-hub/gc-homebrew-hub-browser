@@ -105,7 +105,8 @@ static void job_start(void) {
             ca_loaded = net_set_ca(pem, len, err, sizeof err);
             free(pem);
             if (!ca_loaded) snprintf(done_err, sizeof done_err, "Certificates not loaded: %s", err);
-        } else snprintf(done_err, sizeof done_err, "cacert.pem is missing next to boot.dol; servers are not verified");
+        } else if (!catalog_have_card()) snprintf(done_err, sizeof done_err, "No SD card, so no cacert.pem: servers are not verified");
+        else snprintf(done_err, sizeof done_err, "cacert.pem is missing next to boot.dol; servers are not verified");
     }
     done_ok = 1;
 }
@@ -434,14 +435,14 @@ void store_request_refresh(void) {
 
 void store_request_install(int i) {
     App *a = catalog_app(i);
-    if (!a || store_busy() || !net_up) return;
+    if (!a || store_busy() || !net_up || !catalog_have_card()) return;
     job_app = *a;
     submit(JOB_INSTALL);
 }
 
 void store_request_remove(int i) {
     Installed *in = catalog_installed(i);
-    if (!in || store_busy()) return;
+    if (!in || store_busy() || !catalog_have_card()) return;
     job_inst = *in;
     submit(JOB_REMOVE);
 }

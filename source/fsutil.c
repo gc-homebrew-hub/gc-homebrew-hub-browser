@@ -6,6 +6,9 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
+#ifdef GEKKO
+#include <sys/iosupport.h>
+#endif
 
 #define MAX_DEPTH 12
 #define PATH_CAP 512
@@ -25,6 +28,11 @@ bool fs_mkdirs(const char *path) {
     char buf[PATH_CAP];
     size_t n = strlen(path);
     if (n >= sizeof buf) return false;
+#ifdef GEKKO
+    /* libogc's mkdir() does not check for an unmounted device and reads
+       through a null pointer (no SD card, e.g. Dolphin without one) */
+    if (strchr(path, ':') && FindDevice(path) < 0) return false;
+#endif
     memcpy(buf, path, n + 1);
     /* skip the "drive:/" prefix */
     char *p = strchr(buf, ':');

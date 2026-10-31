@@ -146,7 +146,8 @@ static int details_update(u32 p) {
     if ((p & BTN_A) && det_nact) {
         switch (det_actions[det_btn]) {
         case ACT_INSTALL: case ACT_UPDATE:
-            if (!store_net_up()) ui_toast("No network connection", true);
+            if (!catalog_have_card()) ui_toast("No SD card: insert one to install apps", true);
+            else if (!store_net_up()) ui_toast("No network connection", true);
             else store_request_install(det_app);
             break;
         case ACT_START: launch(catalog_installed(det_inst)); break;
@@ -338,7 +339,8 @@ static void installed_draw(void) {
                                : "A  Details    Y  Updates only    X  Reload    B  Sections");
 
     if (!inst_nitems) {
-        empty_list(updates_only ? "Everything is up to date." : "No apps in sd:/apps yet. Visit the Hub.");
+        empty_list(!catalog_have_card() ? "No SD card. Insert one (SD2SP2, or SD in slot A or B)." :
+                   updates_only ? "Everything is up to date." : "No apps in sd:/apps yet. Visit the Hub.");
         ui_desc(NULL, NULL);
         return;
     }

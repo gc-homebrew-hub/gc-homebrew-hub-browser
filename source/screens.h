@@ -11,7 +11,7 @@ typedef enum { SCR_STORE, SCR_INSTALLED, SCR_SOURCES, SCR_SETTINGS, SCR_DETAILS,
 void menu_focus(void);
 bool menu_focused(void);
 int  menu_update(u32 pressed);          /* a Screen to open, or -1 */
-void menu_draw(bool with_dock);
+void menu_draw(void);
 
 /* the sections (screens.c) */
 void   screens_open(Screen s);

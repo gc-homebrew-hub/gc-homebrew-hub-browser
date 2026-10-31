@@ -93,6 +93,7 @@ static void make_card(void) {
         fs_write_file(p, "dol", 3);
     }
     settings_defaults();
+    catalog_set_card(true);
     catalog_init("sd:/apps/gc-homebrew-hub-browser");
     char err[96];
     catalog_source_add("https://raw.githubusercontent.com/michaellunzer/gc-homebrew-hub/main/index.json", err, sizeof err);
@@ -140,7 +141,7 @@ static void frame(u32 p, bool draw) {
     video_frame_begin();
     ui_backdrop();
     screens_draw(!menu_focused());
-    menu_draw(true);
+    menu_draw();
     screens_draw_overlays();
     ui_toasts_update_draw();
     video_frame_end();
@@ -200,5 +201,8 @@ int main(int argc, char **argv) {
     ui_toast("Flashcube 2.1 installed", false);
     ui_toast("Mac on the LAN: could not connect (timed out)", true);
     idle(10);                                  shot("12-toasts");
+    /* browsing without a card (as in Dolphin) */
+    idle(320); catalog_set_card(false);
+    section(-2); idle(4);                      shot("13-no-card");
     return 0;
 }

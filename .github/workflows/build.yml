@@ -7,6 +7,11 @@ name: Build
 on:
   push:
   workflow_dispatch:
+    inputs:
+      crash_pc:
+        description: "Addresses to look up in boot.elf (a crash's PC or LR, e.g. 0x801a6d78) or function names to disassemble, separated by spaces"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -43,6 +48,27 @@ jobs:
             exit 1
           fi
 
+      # Turns crash addresses (Dolphin's "PC = ...", or a backtrace) into
+      # function and line, against the boot.elf this run built
+      - name: Look up crash addresses
+        if: ${{ inputs.crash_pc != '' }}
+        env:
+          CRASH_PC: ${{ inputs.crash_pc }}
+        run: |
+          docker run --rm -e CRASH_PC -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest sh -c '
+            for a in $CRASH_PC; do
+              echo "== $a"
+              case "$a" in
+              0x*)
+                $DEVKITPPC/bin/powerpc-eabi-addr2line -f -i -C -e boot.elf "$a"
+                s=$(printf "0x%x" $(( a - 0x40 ))); e=$(printf "0x%x" $(( a + 0x20 )))
+                $DEVKITPPC/bin/powerpc-eabi-objdump -d -l --start-address=$s --stop-address=$e boot.elf | tail -n +7 ;;
+              *)
+                # a function name: disassemble all of it
+                $DEVKITPPC/bin/powerpc-eabi-objdump -d --disassemble="$a" boot.elf | tail -n +7 ;;
+              esac
+            done'
+
       - name: Host tests
         run: make test
 
@@ -51,6 +77,15 @@ jobs:
           name: gc-homebrew-hub-browser-${{ github.sha }}
           path: package/
           if-no-files-found: error
+
+      # The symbols that go with this boot.dol, for looking up crashes later
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gc-homebrew-hub-browser-symbols-${{ github.sha }}
+          path: |
+            boot.elf
+            build/boot.elf.map
+          if-no-files-found: warn
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -72,3 +107,50 @@ jobs:
           (cd package && zip -r "../$zip" apps)
           gh release create "$GITHUB_REF_NAME" "$zip" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "GC Homebrew Hub Browser $GITHUB_REF_NAME" --generate-notes
+
+  # Starts the build in Dolphin and keeps screenshots: as an artifact, and on
+  # the dolphin-screenshots branch (latest main build only)
+  dolphin:
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: gc-homebrew-hub-browser-${{ github.sha }}
+          path: package
+
+      - name: Install Dolphin
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq flatpak xvfb
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.DolphinEmu.dolphin-emu
+          flatpak info --user org.DolphinEmu.dolphin-emu | sed -n '1,12p'
+
+      - name: Run boot.dol in Dolphin
+        run: tools/dolphin/run.sh package/apps/gc-homebrew-hub-browser/boot.dol dolphin-out 40
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dolphin-screenshots-${{ github.sha }}
+          path: dolphin-out/
+          if-no-files-found: warn
+
+      - name: Publish to the dolphin-screenshots branch
+        if: always() && hashFiles('dolphin-out/*.png') != ''
+        run: |
+          cd dolphin-out
+          printf '# Dolphin run of %s\n\nBuilt from %s (%s run %s).\n\n![last frame](last.png)\n' \
+            "${GITHUB_SHA::7}" "$GITHUB_SHA" "$GITHUB_REF_NAME" "$GITHUB_RUN_ID" > README.md
+          git init -q -b dolphin-screenshots
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
+            commit -q --allow-empty -m "Dolphin run of $GITHUB_SHA" && git add -A && \
+            git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
+            commit -q --amend -m "Dolphin run of $GITHUB_SHA"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" dolphin-screenshots

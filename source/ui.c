@@ -280,6 +280,11 @@ void ui_title_bar(void) {
     font_draw(rx - lw, ly1, FS_SMALL, C_TEXT, line);
     Color dot = up ? C_GOOD : C_BAD;
     gfx_round_rect(rx - lw - 12, ly1 + lh / 2 - 3, 6, 6, 3, dot);
+    if (!catalog_have_card()) {             /* browsing only: say so in red, left of the network */
+        const char *nc = "No SD card";
+        float nx = rx - lw - 24 - font_width(nc, FS_SMALL);
+        font_draw(nx, ly1, FS_SMALL, C_BAD, nc);
+    }
     time_t now = time(NULL);
     struct tm *tm = now > 1600000000 ? localtime(&now) : NULL;
     if (tm) strftime(line, sizeof line, "%Y-%m-%d  %H:%M", tm);

@@ -51,6 +51,10 @@ typedef struct {
 
 void catalog_init(const char *datadir);
 const char *catalog_datadir(void);
+/* Whether the SD card is mounted. Without one (or in Dolphin, which has no
+ * GameCube SD adapter) the catalogs can be browsed but nothing installed. */
+void catalog_set_card(bool present);
+bool catalog_have_card(void);
 
 /* Sources (UI thread) */
 int     catalog_source_count(void);

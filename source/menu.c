@@ -44,9 +44,8 @@ int menu_update(u32 p) {
     return -1;
 }
 
-void menu_draw(bool with_dock) {
+void menu_draw(void) {
     ui_title_bar();
-    if (!with_dock) return;
     const float bw = 108, bh = 30, gap = 10, by = DOCK_Y + 6;
     const float x0 = FRAME_X + (FRAME_W - NBUTTONS * bw - (NBUTTONS - 1) * gap) / 2;
     ui_panel(FRAME_X, DOCK_Y, FRAME_W, DOCK_H);
