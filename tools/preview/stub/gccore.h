@@ -58,7 +58,7 @@ enum { GX_LO_CLEAR = 0 };
 enum { GX_PF_RGB8_Z24 = 0, GX_PF_RGB565_Z16 = 2 };
 enum { GX_ZC_LINEAR = 0 };
 enum { GX_GM_1_0 = 0 };
-enum { GX_TF_I4 = 0, GX_TF_I8 = 1, GX_TF_IA8 = 3, GX_TF_RGBA8 = 6 };
+enum { GX_TF_I4 = 0, GX_TF_I8 = 1, GX_TF_IA4 = 2, GX_TF_IA8 = 3, GX_TF_RGBA8 = 6 };
 enum { GX_CLAMP = 0, GX_REPEAT = 1 };
 enum { GX_NEAR = 0, GX_LINEAR = 1 };
 
@@ -129,24 +129,6 @@ void VIDEO_Flush(void);
 void VIDEO_WaitVSync(void);
 void *SYS_AllocateFramebuffer(GXRModeObj *m);
 void DCFlushRange(void *p, u32 len);
-
-/* the IPL font */
-typedef struct {
-    u16 font_type, first_char, last_char, inval_char, asc, desc, width, leading;
-    u16 cell_width, cell_height;
-    u32 sheet_size;
-    u16 sheet_format, sheet_column, sheet_row, sheet_width, sheet_height, width_table;
-    u32 sheet_image, sheet_fullsize;
-    u8 c0, c1, c2, c3;
-} sys_fontheader;
-#define SYS_FONTENC_ANSI 0
-#define SYS_FONTENC_SJIS 1
-#define SYS_FONTSIZE_ANSI (512 * 1024)
-#define SYS_FONTSIZE_SJIS (512 * 1024)
-u32  SYS_GetFontEncoding(void);
-u32  SYS_InitFont(sys_fontheader *hdr);
-s32  SYS_GetFontWidth(s32 c);
-void SYS_GetFontTexture(s32 c, void **image, s32 *xpos, s32 *ypos, s32 *width);
 
 #define SYS_HOTRESET 1
 #define SYS_SHUTDOWN 2

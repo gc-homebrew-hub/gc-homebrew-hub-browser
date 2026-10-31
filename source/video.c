@@ -137,6 +137,22 @@ void gfx_rect_gradient(float x, float y, float w, float h, Color top, Color bott
     GX_End();
 }
 
+void gfx_rect_hgradient(float x, float y, float w, float h, Color left, Color right) {
+    if (w <= 0 || h <= 0) return;
+    flat();
+    GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+    vtx(x, y, left); vtx(x + w, y, right); vtx(x + w, y + h, right); vtx(x, y + h, left);
+    GX_End();
+}
+
+void gfx_strip(const float *xy, const Color *c, int n) {
+    if (n < 3) return;
+    flat();
+    GX_Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, n);
+    for (int i = 0; i < n; i++) vtx(xy[2 * i], xy[2 * i + 1], c[i]);
+    GX_End();
+}
+
 static inline Color mix_y(Color top, Color bottom, float t) {
     return RGBA((u8)(top.r + (bottom.r - top.r) * t), (u8)(top.g + (bottom.g - top.g) * t),
                 (u8)(top.b + (bottom.b - top.b) * t), (u8)(top.a + (bottom.a - top.a) * t));
@@ -211,184 +227,4 @@ void gfx_tex_quad(GXTexObj *tex, float tw, float th, float x, float y, float w, 
     GX_Position3f32(x + w, y + h, 0); GX_Color4u8(tint.r, tint.g, tint.b, tint.a); GX_TexCoord2f32(s1 / tw, t1 / th);
     GX_Position3f32(x, y + h, 0);     GX_Color4u8(tint.r, tint.g, tint.b, tint.a); GX_TexCoord2f32(s0 / tw, t1 / th);
     GX_End();
-}
-
-/* ---- the glass cube ----
- *
- * Drawn with a perspective projection whose frustum is sized so that z = -D
- * maps 1:1 onto logical pixels. Shading is computed on the CPU from one
- * directional light, so no GX lighting state is needed. A cube is convex, so
- * its far faces, its near faces and the faces of the core never overlap
- * among themselves: painting far faces, core, near faces in that order needs
- * no depth buffer and no culling. */
-
-#define CAM_D 600.0f
-
-static const float cube_n[6][3] = { {0,0,1}, {0,0,-1}, {1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0} };
-/* each face's right (u) and up (v) directions, as seen from outside */
-static const float cube_u[6][3] = { {1,0,0}, {-1,0,0}, {0,0,-1}, {0,0,1}, {1,0,0}, {1,0,0} };
-static const float cube_v[6][3] = { {0,1,0}, {0,1,0}, {0,1,0}, {0,1,0}, {0,0,-1}, {0,0,1} };
-static const float light[3] = { -0.45f, 0.6f, 0.66f };   /* from the upper left front */
-
-static void cube_projection(void) {
-    Mtx44 proj;
-    guPerspective(proj, 2.0f * atanf((SCREEN_H / 2.0f) / CAM_D) * 180.0f / (float)M_PI,
-                  (float)SCREEN_W / SCREEN_H, 10.0f, 2000.0f);
-    GX_LoadProjectionMtx(proj, GX_PERSPECTIVE);
-}
-
-static void rotation(Mtx out, float rx, float ry, float rz) {
-    Mtx tmp;
-    guVector ax = { 1, 0, 0 }, ay = { 0, 1, 0 }, az = { 0, 0, 1 };
-    guMtxIdentity(out);
-    guMtxRotAxisDeg(tmp, &ay, ry); guMtxConcat(tmp, out, out);
-    guMtxRotAxisDeg(tmp, &ax, rx); guMtxConcat(tmp, out, out);
-    guMtxRotAxisDeg(tmp, &az, rz); guMtxConcat(tmp, out, out);
-}
-
-static void project(const guVector *w, float *sx, float *sy) {
-    float k = CAM_D / (w->z < -1.0f ? -w->z : 1.0f);
-    *sx = SCREEN_W / 2.0f + w->x * k;
-    *sy = SCREEN_H / 2.0f - w->y * k;
-}
-
-static inline float clamp01(float v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
-
-static Color shade(Color c, float k, float add, float a) {
-    return RGBA((u8)fminf(255, c.r * k + add), (u8)fminf(255, c.g * k + add),
-                (u8)fminf(255, c.b * k + add), (u8)(255 * clamp01(a)));
-}
-
-/* How much each face of a cube with matrix m looks at the camera (<= 0: away). */
-static void facing(Mtx m, float size, float out[6]) {
-    for (int i = 0; i < 6; i++) {
-        guVector n = { cube_n[i][0], cube_n[i][1], cube_n[i][2] }, wn, c;
-        guVector p = { n.x * size, n.y * size, n.z * size };
-        guVecMultiplySR(m, &n, &wn);
-        guVecMultiply(m, &p, &c);
-        float len = sqrtf(c.x * c.x + c.y * c.y + c.z * c.z);
-        out[i] = len > 0 ? -(wn.x * c.x + wn.y * c.y + wn.z * c.z) / len : 0;
-    }
-}
-
-/* One face as a quad; the top of the face (in world y) gets the sheen. */
-static void face_quad(Mtx m, int i, float size, Color c, float alpha, float gloss) {
-    guVector n = { cube_n[i][0], cube_n[i][1], cube_n[i][2] }, wn;
-    guVecMultiplySR(m, &n, &wn);
-    float d = wn.x * light[0] + wn.y * light[1] + wn.z * light[2];
-    float lit = 0.32f + 0.6f * (d > 0 ? d : 0);
-    float spec = d > 0.9f ? (d - 0.9f) * 5.0f : 0;
-    static const float su[4] = { -1, 1, 1, -1 }, sv[4] = { 1, 1, -1, -1 };
-    GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
-    for (int k = 0; k < 4; k++) {
-        float p[3];
-        for (int j = 0; j < 3; j++)
-            p[j] = (cube_n[i][j] + su[k] * cube_u[i][j] + sv[k] * cube_v[i][j]) * size;
-        guVector pv = { p[0], p[1], p[2] }, wp;
-        guVecMultiplySR(m, &pv, &wp);
-        float sheen = clamp01(0.5f + 0.5f * wp.y / (size * 1.5f));
-        Color v = shade(c, lit, 255 * (spec + gloss * sheen * sheen), alpha * (0.75f + 0.4f * sheen));
-        GX_Position3f32(p[0], p[1], p[2]);
-        GX_Color4u8(v.r, v.g, v.b, v.a);
-    }
-    GX_End();
-}
-
-static void edges(Mtx m, float size, const float face[6], bool front, Color c, float alpha) {
-    guVector w[8];
-    float sx[8], sy[8];
-    for (int k = 0; k < 8; k++) {
-        guVector p = { (k & 1 ? 1 : -1) * size, (k & 2 ? 1 : -1) * size, (k & 4 ? 1 : -1) * size };
-        guVecMultiply(m, &p, &w[k]);
-        project(&w[k], &sx[k], &sy[k]);
-    }
-    /* face index for (axis, sign): x+ right, x- left, y+ top, y- bottom, z+ front, z- back */
-    static const int face_of[3][2] = { { CUBE_LEFT, CUBE_RIGHT }, { CUBE_BOTTOM, CUBE_TOP }, { CUBE_BACK, CUBE_FRONT } };
-    for (int a = 0; a < 8; a++)
-        for (int bit = 1; bit < 8; bit <<= 1) {
-            int b = a | bit;
-            if (b == a) continue;
-            bool near = false;
-            for (int axis = 0; axis < 3; axis++)
-                if ((1 << axis) != bit && face[face_of[axis][(a >> axis) & 1]] > 0) near = true;
-            if (near != front) continue;
-            float k = front ? 1.0f : 0.35f;
-            gfx_line(sx[a], sy[a], sx[b], sy[b], 6, RGBA(c.r, c.g, c.b, (u8)(40 * k * alpha)));
-            gfx_line(sx[a], sy[a], sx[b], sy[b], 1.6f, RGBA(c.r, c.g, c.b, (u8)(230 * k * alpha)));
-        }
-    if (!front) return;
-    for (int k = 0; k < 8; k++) {
-        bool near = face[k & 1 ? CUBE_RIGHT : CUBE_LEFT] > 0 || face[k & 2 ? CUBE_TOP : CUBE_BOTTOM] > 0 ||
-                    face[k & 4 ? CUBE_FRONT : CUBE_BACK] > 0;
-        if (!near) continue;
-        gfx_rect(sx[k] - 3, sy[k] - 3, 6, 6, RGBA(c.r, c.g, c.b, (u8)(60 * alpha)));
-        gfx_rect(sx[k] - 1.5f, sy[k] - 1.5f, 3, 3, RGBA(255, 255, 255, (u8)(220 * alpha)));
-    }
-}
-
-/* Loads a matrix that maps face units (0..100, y down) onto face i. */
-static void face_space(Mtx m, int i, float size) {
-    Mtx local, out;
-    const float k = size / 50.0f;
-    for (int j = 0; j < 3; j++) {
-        local[j][0] = cube_u[i][j] * k;
-        local[j][1] = -cube_v[i][j] * k;
-        local[j][2] = cube_n[i][j] * k;
-        local[j][3] = (cube_n[i][j] * 1.002f - cube_u[i][j] + cube_v[i][j]) * size;
-    }
-    guMtxConcat(m, local, out);
-    GX_LoadPosMtxImm(out, GX_PNMTX0);
-}
-
-void gfx_glass_cube(float cx, float cy, float size, float rx, float ry, float rz, const CubeStyle *st) {
-    Mtx model;
-    rotation(model, rx, ry, rz);
-    guMtxTransApply(model, model, cx - SCREEN_W / 2.0f, SCREEN_H / 2.0f - cy, -CAM_D);
-    float face[6];
-    facing(model, size, face);
-    float a = st->alpha;
-
-    cube_projection();
-    GX_LoadPosMtxImm(model, GX_PNMTX0);
-    flat();
-    /* far faces: the inside of the glass, darker */
-    for (int i = 0; i < 6; i++)
-        if (face[i] <= 0) face_quad(model, i, size, shade(st->glass, 0.55f, 0, 1), a * 0.45f, 0);
-    mode_2d();
-    edges(model, size, face, false, st->edge, a);
-
-    /* the core */
-    if (st->core.a) {
-        Mtx spin, core;
-        rotation(spin, st->core_spin * 0.6f, st->core_spin, 0);
-        guMtxConcat(model, spin, core);
-        float cs = size * 0.42f, cf[6];
-        facing(core, cs, cf);
-        cube_projection();
-        GX_LoadPosMtxImm(core, GX_PNMTX0);
-        flat();
-        for (int i = 0; i < 6; i++)
-            if (cf[i] > 0) face_quad(core, i, cs, st->core, a * st->core.a / 255.0f, 0.15f);
-    }
-
-    /* near faces with their gloss and decals */
-    cube_projection();
-    for (int i = 0; i < 6; i++) {
-        if (face[i] <= 0) continue;
-        GX_LoadPosMtxImm(model, GX_PNMTX0);
-        flat();
-        face_quad(model, i, size, st->glass, a * 0.5f, 0.35f);
-        face_space(model, i, size);
-        float f = clamp01(face[i] * 1.6f);
-        /* the glossy top half, the Y2K way */
-        gfx_rect_gradient(3, 3, 94, 46, RGBA(255, 255, 255, (u8)(70 * a * f)), RGBA(255, 255, 255, 0));
-        if (st->face) st->face(i, f * a, st->user);
-    }
-    mode_2d();
-    edges(model, size, face, true, st->edge, a);
-}
-
-void gfx_cube(float x, float y, float size, float rx, float ry, float rz, Color base, float alpha) {
-    CubeStyle st = { base, RGBA(0, 0, 0, 0), RGB(200, 190, 255), alpha, 0, NULL, NULL };
-    gfx_glass_cube(x, y, size, rx, ry, rz, &st);
 }

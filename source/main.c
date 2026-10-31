@@ -42,8 +42,7 @@ int main(int argc, char **argv) {
     store_init();
     if (!have_card) ui_toast("No SD card: you can browse, but not install", true);
 
-    Screen screen = SCR_MENU;
-    menu_reset();
+    screens_open(SCR_STORE);
     int retry_frames = 0;
     while (SYS_MainLoop()) {
         input_poll();
@@ -63,18 +62,20 @@ int main(int argc, char **argv) {
                 store_request_refresh();
             }
         }
-        if (screen == SCR_MENU) {
+        if (menu_focused() && !screens_modal()) {
             int next = menu_update(p);
-            if (next >= 0) { screen = (Screen)next; screens_open(screen); }
+            if (next >= 0) screens_open((Screen)next);
         } else {
             int next = screens_update(p);
-            if (next == SCR_MENU) { screen = SCR_MENU; menu_reset(); }
-            else if (next >= 0) { screen = (Screen)next; screens_open(screen); }
+            if (next == SCR_DOCK) menu_focus();
+            else if (next >= 0) screens_open((Screen)next);
         }
 
         video_frame_begin();
-        if (screen == SCR_MENU) menu_draw();
-        else screens_draw();
+        ui_backdrop();
+        screens_draw(!menu_focused());
+        menu_draw();
+        screens_draw_overlays();
         ui_toasts_update_draw();
         video_frame_end();
     }

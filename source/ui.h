@@ -1,81 +1,94 @@
-/* ui.h - the look of the program (the GameCube menu: indigo glass, a dark
- * grid behind the sections, neon accents) and shared widgets. */
+/* ui.h - the look of the program, after the Swiss "System" theme: a dark
+ * TV-screen backdrop, teal-black framed panels, frosted list rows, grey glass
+ * buttons, an indigo description bar and a gold ring around the selection.
+ * Every screen shares one frame: the title bar along the top, the bar of
+ * sections along the bottom, a side pane on the left and a list on the right. */
 #pragma once
 #include <stdbool.h>
 #include "video.h"
 #include "font.h"
 #include "input.h"
 
-/* palette: the main menu's indigo, the glass cube, white text */
-#define C_BG_TOP      RGB(44, 30, 112)
-#define C_BG_BOTTOM   RGB(6, 4, 26)
-#define C_GRID_TOP    RGB(14, 12, 34)      /* the sections' dark grid */
-#define C_GRID_BOTTOM RGB(3, 3, 10)
-#define C_CUBE        RGB(124, 104, 236)
-#define C_CUBE_CORE   RGB(186, 170, 255)
-#define C_CUBE_EDGE   RGB(206, 196, 255)
-#define C_PANEL       RGBA(255, 255, 255, 22)
-#define C_PANEL_EDGE  RGBA(255, 255, 255, 70)
-#define C_TILE        RGBA(255, 255, 255, 34)
-#define C_ROW_HOT     RGBA(255, 255, 255, 60)
+/* text */
 #define C_TEXT        RGB(255, 255, 255)
-#define C_TEXT_DIM    RGBA(255, 255, 255, 170)
-#define C_TEXT_FAINT  RGBA(255, 255, 255, 110)
-#define C_TEXT_DARK   RGB(24, 16, 56)      /* on a lit highlight */
-#define C_ACCENT      RGB(255, 214, 90)    /* update */
-#define C_GOOD        RGB(110, 240, 150)
-#define C_BAD         RGB(255, 110, 110)
-#define C_BAR         RGB(110, 220, 255)
+#define C_TEXT_DIM    RGB(216, 224, 236)
+#define C_TEXT_FAINT  RGB(176, 188, 204)
+#define C_TEXT_DARK   RGB(30, 23, 0)       /* on gold */
+/* state */
+#define C_GOLD        RGB(246, 218, 84)    /* the selection, updates */
+#define C_GOOD        RGB(150, 236, 168)
+#define C_BAD         RGB(255, 150, 136)
 
-/* one neon accent per section, Y2K style */
-#define C_SOURCES     RGB(70, 190, 255)    /* blue */
-#define C_INSTALLED   RGB(90, 240, 140)    /* green */
-#define C_STORE       RGB(196, 120, 255)   /* violet */
-#define C_SETTINGS    RGB(255, 160, 56)    /* GameCube orange */
+/* the frame, in the 640x480 layout */
+#define FRAME_X     19
+#define FRAME_W     602
+#define TITLE_Y     17
+#define TITLE_H     62
+#define DOCK_Y      431
+#define DOCK_H      42
+#define BODY_Y      94                      /* between the title bar and the dock */
+#define BODY_BOTTOM 416
+#define SIDE_X      FRAME_X
+#define SIDE_W      166
+#define MAIN_X      197                     /* the list or panel right of the side pane */
+#define MAIN_W      (FRAME_X + FRAME_W - MAIN_X)
 
-/* safe area */
-#define UI_LEFT   32
-#define UI_RIGHT  608
-#define UI_TOP    24
-#define UI_BOTTOM 456
+/* the list: frosted rows, then the description bar under them */
+#define ROW_H       46
+#define ROW_PITCH   52
+#define LIST_ROWS   5
+#define ROW_W       (MAIN_W - 16)           /* room for the scroll bar */
+#define DESC_Y      (BODY_Y + LIST_ROWS * ROW_PITCH + 2)
+#define DESC_H      (BODY_BOTTOM - DESC_Y)
 
 typedef struct { int sel, top, count, rows; } ListState;
 
-/* The accent of the section on screen; widgets take their highlight from it. */
-void  ui_set_accent(Color c);
-Color ui_accent(void);
 Color ui_mix(Color a, Color b, float t);          /* a toward b by t */
 Color ui_alpha(Color c, float a);                 /* c with its alpha scaled by a */
 
-void ui_background(void);                                  /* a section: the dark grid */
-void ui_menu_background(void);                             /* the main menu: indigo, a floor grid */
-void ui_header(const char *title, const char *right);     /* bar with the small cube */
-void ui_footer(const char *hints);                         /* "A  Open    B  Back" */
-/* Draws button hints: entries split by four spaces, each "KEY  label"; A, B,
- * X, Y, Z, L, R, Start and D-pad become the controller's buttons. */
-void ui_hints(float x, float y, const char *hints, float alpha);
-/* Translucent glossy panel: tint over glass, a gloss on the top half, a rim. */
-void ui_glass(float x, float y, float w, float h, float r, Color tint, float alpha);
-void ui_panel(float x, float y, float w, float h);
-void ui_tag(float rx, float y, const char *text, Color c);  /* small right-aligned label */
+/* the pieces of the look */
+void ui_backdrop(void);                                         /* the whole screen */
+void ui_outline(float x, float y, float w, float h, float r, float t, Color c);
+void ui_panel(float x, float y, float w, float h);               /* framed teal-black box */
+void ui_row(float x, float y, float w, float h);                /* frosted list row */
+void ui_button(float x, float y, float w, float h, bool gold);   /* grey (or gold) glass */
+void ui_ring(float x, float y, float w, float h, bool glow);     /* gold selection, just outside the box */
+void ui_desc_bar(float x, float y, float w, float h);           /* indigo strip */
+void ui_track(float x, float y, float w, float h);              /* dark groove */
+void ui_gold_fill(float x, float y, float w, float h);          /* what fills a groove */
 void ui_progress(float x, float y, float w, float h, float frac);  /* frac < 0: busy stripe */
-void ui_busy_banner(void);                                 /* worker status under the header */
+void ui_scrollbar(float x, float y, float h, const ListState *l);
+
+/* the frame */
+void ui_title_bar(void);
+/* A side pane with a heading; returns the y where its contents start. */
+float ui_side_pane(const char *heading);
+/* Button hints at the bottom of the side pane, one per line: entries split by
+ * four spaces, each "KEY  label" (A, B, X, Y, Z, L, R, Start, D-pad). */
+void ui_side_hints(const char *hints);
+/* A line of the side pane: a dim label and its value, moving *y down. */
+void ui_side_line(float *y, const char *label, const char *value, Color vc);
+/* The description bar under the list, with up to two lines of text. */
+void ui_desc(const char *line1, const char *line2);
+/* Draws one hint, "KEY  label", at (x, y); returns its width. */
+float ui_hint(float x, float y, const char *hint);
+/* Hints in a row; entries split by four spaces. */
+void ui_hints(float x, float y, const char *hints);
+
 void ui_list_nav(ListState *l, u32 pressed);
 void ui_list_clamp(ListState *l);
-void ui_row_highlight(float x, float y, float w, float h, bool hot);
-void ui_badge(float x, float y, int count);                /* little yellow count bubble */
-void ui_led(float cx, float cy, Color c, bool pulse);      /* a glowing status pixel */
-/* A soft-edged ellipse: a pool of light or a shadow (c.a at the middle) */
-void ui_soft_ellipse(float cx, float cy, float rx, float ry, Color c);
+/* A row of the list on the right: (x, y) of row r, frosted, ringed when selected */
+void ui_list_row(int r, bool selected, bool focus, float *x, float *y);
+/* Right-aligned status text on a row */
+void ui_row_status(float y, const char *text, Color c);
+/* A small plate with an app's initials, like a banner in a file list */
+void ui_plate(float x, float y, float w, float h, const char *name);
+void ui_initials(const char *name, char out[3]);
 
 /* Pictograms for the sections, centred on (cx, cy), about s pixels across */
-enum { ICON_SOURCES, ICON_INSTALLED, ICON_STORE, ICON_SETTINGS };
+enum { ICON_STORE, ICON_INSTALLED, ICON_SOURCES, ICON_SETTINGS, ICON_EXIT };
 void ui_icon(int icon, float cx, float cy, float s, Color c);
-
-/* Apps get a colour and a two-letter block, like a save file's banner. */
-Color ui_app_color(const char *key);
-void  ui_initials(const char *name, char out[3]);
-void  ui_app_block(float x, float y, float s, const char *name, const char *key, float alpha);
+void ui_count_badge(float rx, float y, int count);              /* gold bubble, right edge at rx */
 
 /* toasts */
 void ui_toast(const char *text, bool error);

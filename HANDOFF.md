@@ -8,13 +8,15 @@ covers what the program is and how to build it.
 A Wii-Homebrew-Browser-style app store for the GameCube: browse catalogs of
 homebrew from one or more sources, install, update, remove and start apps on
 the SD card without pulling the card, with the default sources and apps
-maintained through pull requests to a catalog repository. The look is the
-GameCube boot menu: a floating cube in the middle, the four sections around
-it, the console's own IPL font.
+maintained through pull requests to a catalog repository. The look on `main` is
+the GameCube boot menu (a floating glass cube); on `swiss-ui` it is the Swiss
+"System" theme. `main` draws text with the console's own IPL font; `swiss-ui`
+bundles Inter, baked at exact pixel sizes (see README.md, "The font").
 
-Controls the owner asked for: up = Sources (add sources), down = Installed
-(Y filters to apps with an update, confirming again installs it), right = App
-store, left = Settings.
+Controls on the cube menu (`main`) were one direction per section; the
+`swiss-ui` branch replaced them with a Swiss-style bar of sections (see "The
+Swiss look" below). Y on Installed still filters to apps with an update, and
+confirming again installs it.
 
 ## The three repositories and their status
 
@@ -64,37 +66,43 @@ format is the only thing shared.
   attaches `package/` as an artifact. A `vX.Y` tag that matches `VERSION`
   in the Makefile also publishes a GitHub Release with the zip.
 
-## The GameCube-menu look (2026-10-26)
+## The Swiss look (branch `swiss-ui`, 2026-10-30)
 
-The owner asked for the console's own menu aesthetic. What that became:
+The owner found the GameCube-menu look (glass cube, neon accents; still on
+`main`, commit 8b036ac) ugly and hard to read, and asked for a complete
+revamp after the Swiss "System" theme in
+[Arial-Bold/swiss-gc-system-UI](https://github.com/Arial-Bold/swiss-gc-system-UI),
+keeping nothing of the old style. That repository asks LLM tools not to work
+on it (its AGENTS.md); nothing was copied from it. Only its look was matched,
+re-implemented here from scratch.
 
-- Main menu: a see-through glass cube (`gfx_glass_cube` in `video.c`): far
-  faces darker, a solid core spinning inside, near faces with a gloss and
-  decals drawn on them with the normal 2D calls (`CubeFaceFn`, face units
-  0..100), glowing edges and corner pixels. Sections sit on faces: top =
-  Sources, bottom = Installed, left = Settings, right = Homebrew Hub (the store), front
-  and back = "GC / HOMEBREW / BROWSER". The D-pad turns that face three-quarters on,
-  the Control Stick leans the cube live, the C-stick spins it and it springs
-  back, opening flies square into the face (18 frames) and coming back zooms
-  out of it. Indigo background with a floor grid and drifting sparks.
-- Sections: a dark grid with pulsing "pixel" crossings and a scan line, each
-  section in its own neon accent (Sources blue, Installed green, Homebrew Hub
-  violet, Settings orange; `C_SOURCES` etc. in `ui.h`, `ui_set_accent`).
-  Panels, rows, tags, toasts, dialogs and keyboard are glossy translucent
-  glass (`ui_glass`). Footers draw the controller's buttons (green A, red B,
-  grey X/Y, yellow C-stick, ...) from the hint text (`ui_hints`).
-- Installed is a 6x3 grid of little glass cubes like the memory card screen:
-  initials on the front with a shine sweeping over them, a colour per app
-  (hash of the slug), an arrow on top and a pulsing pixel for an update, free
-  blocks drawn empty, an info strip for the selected app. The store list and
-  the details page use the same app blocks/cube.
-- The cube is painted back to front (convex, so no depth buffer and no
-  culling); facing is computed on the CPU, so it does not depend on GX's
-  winding convention.
-- `make preview` (tools/preview) renders all of this on the host through a
-  software GX; that is how it was checked. The devkitPPC build was NOT run
-  for these changes (the libogc2 image could not be pulled where they were
-  written): build it first and fix any warnings.
+- Backdrop (`ui_backdrop`): a dark blue-black picture tube with a cool glow,
+  scanlines and a tube-shaped dark edge (per-vertex coloured meshes through
+  `gfx_strip`).
+- Pieces (`ui.c`): `ui_panel` (light outer line, dark inner line, teal-black
+  fill), `ui_row` (frosted blue-grey list row), `ui_button` (grey or gold
+  glass), `ui_ring` (the gold selection ring, with a glow on buttons),
+  `ui_desc_bar` (indigo strip with a fading grid), `ui_track`/`ui_gold_fill`
+  (progress and scroll bars). Text is plain white/grey, no drop shadow.
+- Frame (`menu.c`): the title bar (name, version, network, clock or job
+  progress) and the bar of five sections (Hub, Installed, Sources, Settings,
+  Exit) along the bottom. The section on screen is the gold button; B moves
+  into the bar, where the gold ring shows the choice.
+- Sections (`screens.c`): a side pane (heading, facts, button hints) and six
+  frosted rows with an initials plate, the selection ringed in gold, and the
+  description bar under them. Installed is a list now (no block grid).
+- Navigation changed with it: the program opens on the Hub; the old
+  direction-per-section cube controls are gone.
+- The 3D cube renderer was removed from `video.c`.
+- Checked with `make preview` only; the devkitPPC build was NOT run for this
+  branch (Docker was not running): build it first and fix any warnings.
+- Preview fixes for macOS: `stub/gctypes.h` was empty, a `stub/malloc.h`,
+  `wait` renamed (clashes with libc).
+- Text is Inter, not the IPL font: `tools/font/bake_font.py` bakes 13/15/18/22
+  px into `source/font_data.c` as IA4 textures, drawn 1:1 with GX_NEAR. Text is
+  about half again as large as before, the list shows 5 rows (was 6), the side
+  pane is wider and the dim text colours are brighter. The preview now reads
+  the same textures in their tiled GX layout (the stand-in font is gone).
 
 ## What has NOT been verified
 
@@ -102,10 +110,11 @@ Nothing has run on hardware or in an emulator (Dolphin is not installed on
 this Mac; it cannot emulate the SD card anyway, but would show the UI). In
 order of risk:
 
-1. GX rendering and the IPL font (`video.c`, `font.c`): first thing to look at
+1. GX rendering and the text (`video.c`, `font.c`): first thing to look at
    on the console. If the screen stays black, suspect `video_init`; if there
-   is no text, `SYS_InitFont` (returns 1 on success) or the sheet texture
-   setup. The glass cube draws text and shapes through a perspective
+   is no text or it is garbled, the IA4 texture setup in `font_init` (the
+   tile layout in `bake_font.py` is what the preview reads, not hardware). On
+   PAL (528-line EFB) the 1:1 drawing is stretched a little vertically. The glass cube draws text and shapes through a perspective
    projection (face decals): if those are missing or misplaced on hardware
    but the cube itself shows, look at `face_space` in `video.c`. Also check
    the frame rate on the Installed grid (18 small cubes).
