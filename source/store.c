@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 typedef enum { JOB_NONE, JOB_START, JOB_SOURCES, JOB_INDEXES, JOB_INSTALL, JOB_REMOVE } Job;
 
@@ -73,16 +74,35 @@ bool store_take_message(char *out, size_t cap, bool *error) {
 
 /* ---- worker side ---- */
 
+/* A dropped connection is worth another try (Dolphin's emulated adapter cuts
+ * some short, and real networks drop some too); an answer such as 404 is not.
+ * Status 0: no answer at all; 2xx: the body was cut short; 5xx: the server's
+ * trouble, often brief. */
+static bool worth_retry(const NetReq *r) {
+    return !cancel_flag && (r->status == 0 || (r->status >= 200 && r->status < 300) || r->status >= 500);
+}
+
+#define FETCH_TRIES 3
+
 static bool fetch_text(const char *url, size_t max, char **out, size_t *len, char *err, size_t errlen) {
-    memset(&req, 0, sizeof req);
-    req.url = url; req.max_mem = max; req.cancel = &cancel_flag;
-    downloading = 1;
-    bool ok = net_get(&req);
-    downloading = 0;
-    if (!ok) { snprintf(err, errlen, "%s", req.err); free(req.mem); req.mem = NULL; return false; }
-    *out = req.mem; *len = req.len;
-    req.mem = NULL;
-    return true;
+    for (int t = 1; ; t++) {
+        memset(&req, 0, sizeof req);
+        req.url = url; req.max_mem = max; req.cancel = &cancel_flag;
+        downloading = 1;
+        bool ok = net_get(&req);
+        downloading = 0;
+        if (ok) {
+            *out = req.mem; *len = req.len;
+            req.mem = NULL;
+            return true;
+        }
+        free(req.mem); req.mem = NULL;
+        if (t == FETCH_TRIES || !worth_retry(&req)) {
+            snprintf(err, errlen, "%s", req.err);
+            return false;
+        }
+        usleep(t * 1000000);                  /* 1 s, then 2 s */
+    }
 }
 
 static void job_start(void) {
