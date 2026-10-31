@@ -268,7 +268,7 @@ static void storescr_draw(void) {
             gfx_rect(SIDE_X + 8, y - 3, 3, font_height(FS_SMALL) + 6, C_GOLD);
         }
         font_draw(SIDE_X + 18, y, FS_SMALL, hot ? C_TEXT : C_TEXT_DIM, cat_names[c]);
-        char s[8];
+        char s[12];
         snprintf(s, sizeof s, "%d", n);
         font_draw_right(SIDE_X + SIDE_W - 14, y, FS_SMALL, hot ? C_GOLD : C_TEXT_FAINT, s);
     }
