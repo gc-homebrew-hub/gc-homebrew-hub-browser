@@ -254,7 +254,11 @@ bool catalog_parse_index(const char *json, size_t len, int source, App *out, int
                 str_field(json, t, e, "file", r->from, sizeof r->from);
                 str_field(json, t, e, "to", r->to, sizeof r->to);
                 str_field(json, t, e, "archive", r->archive, sizeof r->archive);
-                if (!*r->archive) snprintf(r->archive, sizeof r->archive, "%s_archive", a->slug);
+                if (!*r->archive) {
+                    char def[sizeof r->archive];
+                    snprintf(def, sizeof def, "%.31s_archive", a->slug);
+                    memcpy(r->archive, def, sizeof def);
+                }
                 /* never into sd:/apps, where the store keeps its own folders */
                 if (fs_safe_relative(r->from) && fs_safe_relative(r->to) && strncasecmp(r->to, "apps/", 5) &&
                     strcasecmp(r->to, "apps") && name_ok(r->archive) && strcasecmp(r->archive, "apps"))

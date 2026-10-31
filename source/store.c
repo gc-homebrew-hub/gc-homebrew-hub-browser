@@ -304,7 +304,7 @@ static void job_install(void) {
     done_note[0] = 0; done_note_error = 0;
     for (int i = 0; job_replace_root && i < a->nreplace; i++) {
         RootFile *r = &a->replace[i];
-        char target[64], src[300], arch[100], moved[300], e[80], note[160];
+        char target[64], src[300], arch[100], moved[300], e[80], note[200];
         snprintf(target, sizeof target, "sd:/%s", r->to);
         if (!fs_exists(target)) continue;
         if (!fs_join(src, sizeof src, dest, r->from) || !fs_exists(src)) {
@@ -318,14 +318,18 @@ static void job_install(void) {
             if (fs_replace_archiving(src, target, arch, moved, sizeof moved, e, sizeof e)) {
                 char *slash = strrchr(moved, '/');
                 if (slash) *slash = 0;
-                snprintf(note, sizeof note, "%s updated; the old one is in %s", target, moved);
+                snprintf(note, sizeof note, "%s updated; the old one is in %.100s", target, moved);
             } else {
                 snprintf(note, sizeof note, "%s was not updated: %s", target, e);
                 done_note_error = 1;
             }
         }
-        size_t l = strlen(done_note);
-        snprintf(done_note + l, sizeof done_note - l, "%s%s", l ? ". " : "", note);
+        /* appended by hand: one sentence per file, cut at the end if need be */
+        size_t l = strlen(done_note), n = strlen(note);
+        if (l && l + 2 < sizeof done_note) { memcpy(done_note + l, ". ", 2); l += 2; }
+        if (n > sizeof done_note - 1 - l) n = sizeof done_note - 1 - l;
+        memcpy(done_note + l, note, n);
+        done_note[l + n] = 0;
     }
     done_ok = 1;
 }

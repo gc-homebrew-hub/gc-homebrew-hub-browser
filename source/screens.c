@@ -141,7 +141,7 @@ static const char *action_label(int act) {
 /* Installs app i, first asking whether to replace boot files at the root of
  * the card that it brings a new version of (replace_at_root) */
 static void start_install(int i) {
-    char list[120], t[200];
+    char list[120], t[320];
     if (!store_root_targets(i, list, sizeof list)) { store_request_install(i, false); return; }
     App *a = catalog_app(i);
     snprintf(t, sizeof t, "Replace %s with %s %s too? The old one is moved to sd:/%s.", list, a->name, a->version,
