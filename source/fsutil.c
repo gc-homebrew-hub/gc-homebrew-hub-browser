@@ -161,3 +161,54 @@ bool fs_safe_relative(const char *rel) {
     }
     return true;
 }
+
+bool fs_files_equal(const char *a, const char *b) {
+    long long sa = fs_file_size(a);
+    if (sa < 0 || sa != fs_file_size(b)) return false;
+    FILE *fa = fopen(a, "rb"), *fb = fopen(b, "rb");
+    char *ba = malloc(32768), *bb = malloc(32768);
+    bool eq = fa && fb && ba && bb;
+    size_t n;
+    while (eq && (n = fread(ba, 1, 32768, fa)) > 0) eq = fread(bb, 1, n, fb) == n && !memcmp(ba, bb, n);
+    if (fa) fclose(fa);
+    if (fb) fclose(fb);
+    free(ba); free(bb);
+    return eq;
+}
+
+bool fs_replace_archiving(const char *src, const char *target, const char *archive_dir,
+                          char *moved_to, size_t movedcap, char *err, size_t errlen) {
+    const char *base = strrchr(target, '/');
+    base = base ? base + 1 : target;
+    char fresh[300], dir[300], old[300];
+    snprintf(fresh, sizeof fresh, "%s.new", target);
+    remove(fresh);
+    if (!fs_copy_file(src, fresh) || !fs_files_equal(src, fresh)) {
+        remove(fresh);
+        snprintf(err, errlen, "could not write the new copy (card full?)");
+        return false;
+    }
+    for (int i = 1; ; i++) {
+        if (i == 1) snprintf(dir, sizeof dir, "%s", archive_dir);
+        else snprintf(dir, sizeof dir, "%s-%d", archive_dir, i);
+        if (!fs_join(old, sizeof old, dir, base) || i > 99) {
+            remove(fresh);
+            snprintf(err, errlen, "no free name in the archive folder");
+            return false;
+        }
+        if (!fs_exists(old)) break;
+    }
+    if (!fs_mkdirs(dir) || rename(target, old) != 0) {
+        remove(fresh);
+        snprintf(err, errlen, "could not move the old one to the archive");
+        return false;
+    }
+    if (rename(fresh, target) != 0) {
+        rename(old, target);
+        remove(fresh);
+        snprintf(err, errlen, "could not put the new one in place; the old one is back");
+        return false;
+    }
+    snprintf(moved_to, movedcap, "%s", old);
+    return true;
+}

@@ -254,6 +254,37 @@ static void test_tarxz(void) {
           !app.bare && !strcmp(app.url, "https://x.org/s.tar.xz"), "archive field: %s", err);
 }
 
+/* replace_at_root: a boot file is swapped and the old one archived */
+static void test_root_replace(void) {
+    char err[128], moved[300];
+    const char *idx = "{\"format\":1,\"apps\":[{\"slug\":\"swiss\",\"zip\":\"https://x.org/s.zip\",\"replace_at_root\":["
+                      "{\"file\":\"s.dol\",\"to\":\"ipl.dol\",\"archive\":\"swiss_archive\"},"
+                      "{\"file\":\"p.img\",\"to\":\"swiss/patches/apploader.img\"},"
+                      "{\"file\":\"x\",\"to\":\"apps/other/boot.dol\"}]}]}";
+    App app; int na = 0;
+    CHECK(catalog_parse_index(idx, strlen(idx), 0, &app, &na, 1, NULL, 0, err, sizeof err) && na == 1, "parse: %s", err);
+    CHECK(app.nreplace == 2 && !strcmp(app.replace[0].to, "ipl.dol") && !strcmp(app.replace[0].archive, "swiss_archive"),
+          "root files: %d", app.nreplace);
+    CHECK(!strcmp(app.replace[1].archive, "swiss_archive"), "default archive is slug_archive: %s", app.replace[1].archive);
+
+    fs_mkdirs("rr");
+    fs_write_file("rr/new.dol", "NEW", 3);
+    fs_write_file("rr/ipl.dol", "OLD1", 4);
+    CHECK(fs_files_equal("rr/new.dol", "rr/new.dol") && !fs_files_equal("rr/new.dol", "rr/ipl.dol") &&
+          !fs_files_equal("rr/new.dol", "rr/missing"), "files_equal");
+    CHECK(fs_replace_archiving("rr/new.dol", "rr/ipl.dol", "rr/arch/r1", moved, sizeof moved, err, sizeof err), "replace: %s", err);
+    CHECK(has("rr/ipl.dol", "NEW") && has("rr/arch/r1/ipl.dol", "OLD1") && !strcmp(moved, "rr/arch/r1/ipl.dol"), "swapped");
+    CHECK(!fs_exists("rr/ipl.dol.new"), "no leftovers");
+    /* the same archive folder again: a second one beside it, nothing overwritten */
+    fs_write_file("rr/ipl.dol", "OLD2", 4);
+    CHECK(fs_replace_archiving("rr/new.dol", "rr/ipl.dol", "rr/arch/r1", moved, sizeof moved, err, sizeof err) &&
+          has("rr/arch/r1/ipl.dol", "OLD1") && has("rr/arch/r1-2/ipl.dol", "OLD2"), "archive kept: %s", moved);
+    /* a missing source changes nothing */
+    fs_write_file("rr/ipl.dol", "OLD3", 4);
+    CHECK(!fs_replace_archiving("rr/none.dol", "rr/ipl.dol", "rr/arch/r3", moved, sizeof moved, err, sizeof err) &&
+          has("rr/ipl.dol", "OLD3") && !fs_exists("rr/arch/r3") && !fs_exists("rr/ipl.dol.new"), "failure leaves it alone");
+}
+
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     fs_mkdirs("sd:");   /* the host stand-in for the card root */
@@ -262,6 +293,7 @@ int main(void) {
     test_fs();
     test_catalog();
     test_tarxz();
+    test_root_replace();
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

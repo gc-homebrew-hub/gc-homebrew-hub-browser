@@ -15,6 +15,14 @@ bool fs_copy_file(const char *src, const char *dst);
  * `keep_existing` is set. */
 bool fs_copy_tree(const char *src, const char *dst, bool keep_existing);
 bool fs_free_space(const char *path, unsigned long long *bytes);
+bool fs_files_equal(const char *a, const char *b);  /* same bytes; false if either is missing */
+/* Puts a copy of src at target and moves the file that was there into
+ * archive_dir (archive_dir-2, -3, ... when that already holds one of the same
+ * name). The copy is written beside target and checked first, so target is
+ * only ever missing between two renames; if the second fails, the old file
+ * goes back. Writes where the old file went to moved_to. */
+bool fs_replace_archiving(const char *src, const char *target, const char *archive_dir,
+                          char *moved_to, size_t movedcap, char *err, size_t errlen);
 /* True for a relative path that stays inside its folder: no leading '/', no
  * drive, no "..", no control characters. */
 bool fs_safe_relative(const char *rel);

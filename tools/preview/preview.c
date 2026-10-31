@@ -35,7 +35,8 @@ const char *store_step(void) { return step_text; }
 float store_progress(void) { return progress; }
 const char *store_job_name(void) { return job; }
 void store_request_refresh(void) {}
-void store_request_install(int i) { (void)i; }
+void store_request_install(int i, bool replace_root) { (void)i; (void)replace_root; }
+int store_root_targets(int i, char *list, size_t cap) { (void)i; if (cap) list[0] = 0; return 0; }
 void store_request_remove(int i) { (void)i; }
 void store_cancel(void) {}
 bool store_take_message(char *out, size_t cap, bool *error) { (void)out; (void)cap; (void)error; return false; }

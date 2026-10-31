@@ -22,7 +22,8 @@ static bool focus = true;             /* the list has the controls (not the bar 
 static ListState ls_src, ls_inst, ls_store, ls_set;
 static bool updates_only;
 static int store_cat;
-static int pending_action;            /* what a confirm answers: 1 remove source, 2 update, 3 remove app, 4 exit */
+static int pending_action;            /* what a confirm answers: 1 remove source, 2 update, 3 remove app, 4 exit,
+                                         5 also replace root files (no = install without) */
 static int pending_index;
 
 /* details */
@@ -137,6 +138,18 @@ static const char *action_label(int act) {
     }
 }
 
+/* Installs app i, first asking whether to replace boot files at the root of
+ * the card that it brings a new version of (replace_at_root) */
+static void start_install(int i) {
+    char list[120], t[200];
+    if (!store_root_targets(i, list, sizeof list)) { store_request_install(i, false); return; }
+    App *a = catalog_app(i);
+    snprintf(t, sizeof t, "Replace %s with %s %s too? The old one is moved to sd:/%s.", list, a->name, a->version,
+             a->replace[0].archive);
+    ui_confirm_open("Boot file", t, "Replace", "Apps only");
+    pending_action = 5; pending_index = i;
+}
+
 static int details_update(u32 p) {
     details_actions();
     if (p & BTN_B) return det_from;
@@ -148,7 +161,7 @@ static int details_update(u32 p) {
         case ACT_INSTALL: case ACT_UPDATE:
             if (!catalog_have_card()) ui_toast("No SD card: insert one to install apps", true);
             else if (!store_net_up()) ui_toast("No network connection", true);
-            else store_request_install(det_app);
+            else start_install(det_app);
             break;
         case ACT_START: launch(catalog_installed(det_inst)); break;
         case ACT_REMOVE: {
@@ -157,7 +170,7 @@ static int details_update(u32 p) {
             App *a = det_app >= 0 ? catalog_app(det_app) : NULL;
             snprintf(t, sizeof t, "Delete sd:/apps/%s from the card?%s", in->folder,
                      a && a->nto_root ? " Its data at the root of the card stays." : "");
-            ui_confirm_open("Remove app", t, "Remove");
+            ui_confirm_open("Remove app", t, "Remove", "Cancel");
             pending_action = 3; pending_index = det_inst;
             break;
         }
@@ -318,7 +331,7 @@ static int installed_update(u32 p) {
             App *a = catalog_app(in->app);
             char t[200];
             snprintf(t, sizeof t, "Update %s from %s to %s?", in->name, *in->version ? in->version : "?", a->version);
-            ui_confirm_open("Update app", t, "Update");
+            ui_confirm_open("Update app", t, "Update", "Cancel");
             pending_action = 2; pending_index = in->app;
         } else open_details(in->app, i, SCR_INSTALLED);
     }
@@ -383,7 +396,7 @@ static int sources_update(u32 p) {
         else {
             char t[200];
             snprintf(t, sizeof t, "Remove %s from the list?", s->name);
-            ui_confirm_open("Remove source", t, "Remove");
+            ui_confirm_open("Remove source", t, "Remove", "Cancel");
             pending_action = 1; pending_index = ls_src.sel;
         }
     }
@@ -493,7 +506,7 @@ Screen screens_section(void) { return cur == SCR_DETAILS ? det_from : cur; }
 bool screens_modal(void) { return osk_active() || ui_confirm_active(); }
 
 void screens_ask_exit(void) {
-    ui_confirm_open("Leave", g_settings.exit_action ? "Return to the loader (Swiss)?" : "Reboot the GameCube?", "Leave");
+    ui_confirm_open("Leave", g_settings.exit_action ? "Return to the loader (Swiss)?" : "Reboot the GameCube?", "Leave", "Cancel");
     pending_action = 4;
 }
 
@@ -509,15 +522,18 @@ int screens_update(u32 p) {
     }
     if (ui_confirm_active()) {
         int r = ui_confirm_update(p);
-        if (r == 1) {
-            switch (pending_action) {
+        if (!r) return -1;
+        int act = pending_action;
+        pending_action = 0;                  /* before acting: an answer can open the next question */
+        if (act == 5) store_request_install(pending_index, r == 1);
+        else if (r == 1) {
+            switch (act) {
             case 1: catalog_source_remove(pending_index); ui_toast("Source removed", false); break;
-            case 2: store_request_install(pending_index); break;
+            case 2: start_install(pending_index); break;
             case 3: store_request_remove(pending_index); cur = det_from; break;
             case 4: do_exit(); break;
             }
         }
-        if (r) pending_action = 0;
         return -1;
     }
     switch (cur) {

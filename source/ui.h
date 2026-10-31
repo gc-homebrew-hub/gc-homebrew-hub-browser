@@ -94,8 +94,8 @@ void ui_count_badge(float rx, float y, int count);              /* gold bubble, 
 void ui_toast(const char *text, bool error);
 void ui_toasts_update_draw(void);
 
-/* modal confirm: ui_confirm_open then poll each frame */
-void ui_confirm_open(const char *title, const char *text, const char *yes);
+/* modal confirm: ui_confirm_open then poll each frame; yes is on A, no on B */
+void ui_confirm_open(const char *title, const char *text, const char *yes, const char *no);
 bool ui_confirm_active(void);
 int  ui_confirm_update(u32 pressed);   /* 1 yes, -1 no, 0 waiting */
 void ui_confirm_draw(void);

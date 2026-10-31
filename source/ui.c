@@ -502,13 +502,14 @@ void ui_toasts_update_draw(void) {
 
 /* ---- confirm ---- */
 
-static struct { bool active; char title[64], text[200], yes[24]; } cf;
+static struct { bool active; char title[64], text[200], yes[24], no[24]; } cf;
 
-void ui_confirm_open(const char *title, const char *text, const char *yes) {
+void ui_confirm_open(const char *title, const char *text, const char *yes, const char *no) {
     cf.active = true;
     snprintf(cf.title, sizeof cf.title, "%s", title);
     snprintf(cf.text, sizeof cf.text, "%s", text);
     snprintf(cf.yes, sizeof cf.yes, "%s", yes);
+    snprintf(cf.no, sizeof cf.no, "%s", no);
 }
 
 bool ui_confirm_active(void) { return cf.active; }
@@ -530,9 +531,10 @@ void ui_confirm_draw(void) {
     font_draw_wrapped(x + 22, y + 58, FS_BODY, C_TEXT_DIM, cf.text, w - 44, 3, true);
     /* the two answers, as glass buttons; the gold ring is on yes */
     float bw = 160, bh = 34, by = y + h - bh - 16, gap = 24, bx = x + (w - 2 * bw - gap) / 2;
-    char yes[40];
+    char yes[40], no[40];
     snprintf(yes, sizeof yes, "A  %s", cf.yes);
-    const char *labels[2] = { yes, "B  Cancel" };
+    snprintf(no, sizeof no, "B  %s", cf.no);
+    const char *labels[2] = { yes, no };
     for (int i = 0; i < 2; i++) {
         float px = bx + i * (bw + gap);
         ui_button(px, by, bw, bh, false);

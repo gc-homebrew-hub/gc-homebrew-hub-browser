@@ -245,6 +245,21 @@ bool catalog_parse_index(const char *json, size_t len, int source, App *out, int
                     strcasecmp(rel, "apps"))
                     scopy(a->to_root[a->nto_root++], sizeof a->to_root[0], rel);
             }
+        int rep = json_find(json, t, k, "replace_at_root");
+        if (rep >= 0 && t[rep].type == JT_ARRAY)
+            for (int e = json_first(t, rep), i = 0; e >= 0 && i < t[rep].size && a->nreplace < 2; e = json_next(t, e), i++) {
+                RootFile *r = &a->replace[a->nreplace];
+                memset(r, 0, sizeof *r);
+                if (t[e].type != JT_OBJECT) continue;
+                str_field(json, t, e, "file", r->from, sizeof r->from);
+                str_field(json, t, e, "to", r->to, sizeof r->to);
+                str_field(json, t, e, "archive", r->archive, sizeof r->archive);
+                if (!*r->archive) snprintf(r->archive, sizeof r->archive, "%s_archive", a->slug);
+                /* never into sd:/apps, where the store keeps its own folders */
+                if (fs_safe_relative(r->from) && fs_safe_relative(r->to) && strncasecmp(r->to, "apps/", 5) &&
+                    strcasecmp(r->to, "apps") && name_ok(r->archive) && strcasecmp(r->archive, "apps"))
+                    a->nreplace++;
+            }
         /* reject entries that could not be installed safely */
         bool ok = slug_ok(a->slug) && url_ok(a->url) && name_ok(a->folder) && fs_safe_relative(a->binary) &&
                   (!*a->root || fs_safe_relative(a->root)) && strcasecmp(a->folder, "gc-homebrew-hub-browser") != 0;
