@@ -1,6 +1,6 @@
 # Handoff: GC Homebrew Hub Browser
 
-Last updated 2026-10-25 (names chosen: GC Homebrew Hub = the catalog, GC Homebrew Hub Browser = the program). Read this before continuing the work; README.md
+Last updated 2026-10-25 (names chosen: gc-homebrew-hub-catalog = the catalog repository, whose source is shown on the console as "GC Homebrew Hub"; GC Homebrew Hub Browser = the program). Read this before continuing the work; README.md
 covers what the program is and how to build it.
 
 ## The goal
@@ -28,7 +28,7 @@ confirming again installs it.
 
 On 2026-10-31 this repository moved from `michaellunzer` to the
 `gc-homebrew-hub` organization (GitHub redirects the old address); the
-original local catalog (`~/Documents/GitHub/gc-homebrew-hub`, with CubeBrowser,
+original catalog (a local folder only, with CubeBrowser,
 Flashcube and GC-MP3) had been lost, so the catalog was recreated as the public
 `gc-homebrew-hub-catalog` repository with CubeBrowser 2.8 only: Flashcube and
 GC-MP3 have no public releases to point at.
