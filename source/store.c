@@ -361,19 +361,23 @@ void store_poll(void) {
     }
     case JOB_INDEXES:
         if (done_ok) {
-            int failed = 0;
+            int failed = 0, first = -1;
             for (int i = 0; i < sres_n && i < catalog_source_count(); i++) {
                 Source *s = catalog_source(i);
                 s->napps = sres[i].napps;
                 snprintf(s->status, sizeof s->status, "%s", sres[i].status);
                 if (sres[i].name[0] && !s->builtin) snprintf(s->name, sizeof s->name, "%s", sres[i].name);
-                if (s->enabled && sres[i].napps < 0) failed++;
+                if (s->enabled && sres[i].napps < 0 && !failed++) first = i;
             }
             catalog_replace_apps(new_apps, new_napps);
             new_apps = NULL;
             char m[120];
             int up = catalog_update_count();
-            if (failed) snprintf(m, sizeof m, "%d source%s could not be loaded", failed, failed == 1 ? "" : "s");
+            if (failed == 1) {               /* say why; the status reads "Failed: <reason>" */
+                const char *why = catalog_source(first)->status;
+                if (!strncmp(why, "Failed: ", 8)) why += 8;
+                snprintf(m, sizeof m, "%.36s not loaded: %.66s", catalog_source(first)->name, why);
+            } else if (failed) snprintf(m, sizeof m, "%d sources could not be loaded", failed);
             else if (up) snprintf(m, sizeof m, "%d update%s available", up, up == 1 ? "" : "s");
             else snprintf(m, sizeof m, "%d apps listed", catalog_app_count());
             push_msg(m, failed != 0);
