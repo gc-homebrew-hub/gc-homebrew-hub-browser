@@ -15,6 +15,10 @@ bool fs_copy_file(const char *src, const char *dst);
  * `keep_existing` is set. */
 bool fs_copy_tree(const char *src, const char *dst, bool keep_existing);
 bool fs_free_space(const char *path, unsigned long long *bytes);
+/* Whether an archive path is wanted: inside (or equal to) one of the paths
+ * in the NULL-terminated list; everything is wanted when the list is NULL or
+ * empty. */
+bool fs_path_wanted(const char *path, const char *const *only);
 bool fs_files_equal(const char *a, const char *b);  /* same bytes; false if either is missing */
 /* Puts a copy of src at target and moves the file that was there into
  * archive_dir (archive_dir-2, -3, ... when that already holds one of the same

@@ -209,7 +209,7 @@ static void test_tarxz(void) {
     CHECK(write_xz("a.tar.xz", &b, 1 << 20), "encode");
     size_t done = 0, total = 0;
     fs_remove_tree("out");
-    CHECK(untarxz_to_dir("a.tar.xz", "out", "pkg/app", NULL, &done, &total, err, sizeof err), "unpack: %s", err);
+    CHECK(untarxz_to_dir("a.tar.xz", "out", (const char *[]){ "pkg/app", NULL }, NULL, &done, &total, err, sizeof err), "unpack: %s", err);
     CHECK(has("out/pkg/app/boot.dol", "DOL") && has("out/pkg/app/data/x.txt", "x"), "files written");
     char path[300];
     snprintf(path, sizeof path, "out/%s", longname);
@@ -218,9 +218,13 @@ static void test_tarxz(void) {
     CHECK(has("out/pkg/app/empty", ""), "empty file");
     CHECK(!fs_exists("out/pkg/app/link"), "link skipped");
     CHECK(!fs_exists("out/pkg/other") && !fs_exists("out/pkg/appendix.txt"), "only the root folder is written");
+    fs_remove_tree("out");
+    CHECK(untarxz_to_dir("a.tar.xz", "out", (const char *[]){ "pkg/app", "pkg/other/big.iso", NULL }, NULL, NULL, NULL,
+                         err, sizeof err) && has("out/pkg/other/big.iso", "ISO") && !fs_exists("out/pkg/appendix.txt"),
+          "a listed file outside the root folder: %s", err);
     CHECK(total > 0 && done == total, "progress %zu/%zu", done, total);
     fs_remove_tree("out");
-    CHECK(untarxz_to_dir("a.tar.xz", "out", "", NULL, NULL, NULL, err, sizeof err) &&
+    CHECK(untarxz_to_dir("a.tar.xz", "out", NULL, NULL, NULL, NULL, err, sizeof err) &&
           has("out/pkg/other/big.iso", "ISO"), "everything without a root: %s", err);
 
     /* a cut-off download */
@@ -228,22 +232,22 @@ static void test_tarxz(void) {
     fs_read_file("a.tar.xz", &d, &n, 1 << 20);
     fs_write_file("cut.tar.xz", d, n / 2);
     free(d);
-    CHECK(!untarxz_to_dir("cut.tar.xz", "out2", "", NULL, NULL, NULL, err, sizeof err), "cut archive refused");
+    CHECK(!untarxz_to_dir("cut.tar.xz", "out2", NULL, NULL, NULL, NULL, err, sizeof err), "cut archive refused");
 
     Buf bad = { 0 };
     tar_add(&bad, "../evil", '0', "x", 1);
     put(&bad, end, sizeof end);
     write_xz("bad.tar.xz", &bad, 1 << 20);
-    CHECK(!untarxz_to_dir("bad.tar.xz", "out3", "", NULL, NULL, NULL, err, sizeof err) && !fs_exists("evil"),
+    CHECK(!untarxz_to_dir("bad.tar.xz", "out3", NULL, NULL, NULL, NULL, err, sizeof err) && !fs_exists("evil"),
           "unsafe path refused");
 
     /* a dictionary too big for the console is refused up front, with a reason */
     write_xz("huge.tar.xz", &b, 64u << 20);
-    CHECK(!untarxz_to_dir("huge.tar.xz", "out4", "", NULL, NULL, NULL, err, sizeof err) && strstr(err, "MB of memory"),
+    CHECK(!untarxz_to_dir("huge.tar.xz", "out4", NULL, NULL, NULL, NULL, err, sizeof err) && strstr(err, "MB of memory"),
           "memory limit: %s", err);
 
     fs_write_file("junk.tar.xz", "PK\3\4 not xz", 11);
-    CHECK(!untarxz_to_dir("junk.tar.xz", "out5", "", NULL, NULL, NULL, err, sizeof err), "not xz refused");
+    CHECK(!untarxz_to_dir("junk.tar.xz", "out5", NULL, NULL, NULL, NULL, err, sizeof err), "not xz refused");
     free(b.p); free(bad.p);
 
     /* a catalog entry names a .tar.xz with "archive" */
@@ -258,14 +262,23 @@ static void test_tarxz(void) {
 static void test_root_replace(void) {
     char err[128], moved[300];
     const char *idx = "{\"format\":1,\"apps\":[{\"slug\":\"swiss\",\"zip\":\"https://x.org/s.zip\",\"replace_at_root\":["
-                      "{\"file\":\"s.dol\",\"to\":\"ipl.dol\",\"archive\":\"swiss_archive\"},"
-                      "{\"file\":\"p.img\",\"to\":\"swiss/patches/apploader.img\"},"
+                      "{\"file\":\"s/DOL/s.dol\",\"to\":\"ipl.dol\",\"archive\":\"swiss_archive\"},"
+                      "{\"file\":\"s/X.zip!../evil\",\"to\":\"evil\"},"
+                      "{\"file\":\"s/Apploader/X.zip!swiss/patches/apploader.img\",\"to\":\"swiss/patches/apploader.img\"},"
                       "{\"file\":\"x\",\"to\":\"apps/other/boot.dol\"}]}]}";
     App app; int na = 0;
     CHECK(catalog_parse_index(idx, strlen(idx), 0, &app, &na, 1, NULL, 0, err, sizeof err) && na == 1, "parse: %s", err);
-    CHECK(app.nreplace == 2 && !strcmp(app.replace[0].to, "ipl.dol") && !strcmp(app.replace[0].archive, "swiss_archive"),
-          "root files: %d", app.nreplace);
+    CHECK(app.nreplace == 2 && !strcmp(app.replace[0].to, "ipl.dol") && !strcmp(app.replace[0].archive, "swiss_archive") &&
+          !strcmp(app.replace[1].from, "s/Apploader/X.zip!swiss/patches/apploader.img"),
+          "root files (an unsafe inner path is dropped): %d", app.nreplace);
     CHECK(!strcmp(app.replace[1].archive, "swiss_archive"), "default archive is slug_archive: %s", app.replace[1].archive);
+    CHECK(fs_path_wanted("a/b/c", (const char *[]){ "x", "a/b", NULL }) && fs_path_wanted("a/b", (const char *[]){ "a/b", NULL }) &&
+          !fs_path_wanted("a/bc", (const char *[]){ "a/b", NULL }) && fs_path_wanted("q", NULL), "path_wanted");
+    const char *bare = "{\"format\":1,\"apps\":[{\"slug\":\"b\",\"dol\":\"https://x.org/b.dol\",\"binary\":\"b.dol\","
+                       "\"replace_at_root\":[{\"file\":\"other.dol\",\"to\":\"ipl.dol\"}]}]}";
+    na = 0;
+    CHECK(catalog_parse_index(bare, strlen(bare), 0, &app, &na, 1, NULL, 0, err, sizeof err) && na == 1 && app.nreplace == 0,
+          "a bare .dol can only place its own binary");
 
     fs_mkdirs("rr");
     fs_write_file("rr/new.dol", "NEW", 3);
@@ -285,6 +298,36 @@ static void test_root_replace(void) {
           has("rr/ipl.dol", "OLD3") && !fs_exists("rr/arch/r3") && !fs_exists("rr/ipl.dol.new"), "failure leaves it alone");
 }
 
+#ifdef HAVE_LIBZIP
+#include "zipx.h"
+#include <zip.h>
+
+/* zips are built with libzip; the console reads them with the same library */
+static void test_zip(void) {
+    char err[128];
+    int ze;
+    remove("inner.zip");
+    zip_t *z = zip_open("inner.zip", ZIP_CREATE | ZIP_TRUNCATE, &ze);
+    zip_file_add(z, "swiss/patches/apploader.img", zip_source_buffer(z, "IMG", 3, 0), 0);
+    CHECK(z && zip_close(z) == 0, "write inner zip");
+    CHECK(unzip_file("inner.zip", "swiss/patches/apploader.img", "img.out", err, sizeof err) && has("img.out", "IMG"),
+          "member out of a zip: %s", err);
+    CHECK(!unzip_file("inner.zip", "nope", "nope.out", err, sizeof err) && !fs_exists("nope.out"), "missing member refused");
+
+    remove("outer.zip");
+    z = zip_open("outer.zip", ZIP_CREATE | ZIP_TRUNCATE, &ze);
+    zip_file_add(z, "s/DOL/s.dol", zip_source_buffer(z, "DOL", 3, 0), 0);
+    zip_file_add(z, "s/Apploader/X.zip", zip_source_file(z, "inner.zip", 0, -1), 0);
+    zip_file_add(z, "s/ISO/big.iso", zip_source_buffer(z, "ISO", 3, 0), 0);
+    CHECK(zip_close(z) == 0, "write outer zip");
+    fs_remove_tree("zout");
+    CHECK(unpack_to_dir("outer.zip", "zout", (const char *[]){ "s/DOL", "s/Apploader/X.zip", NULL }, NULL, NULL, NULL,
+                        err, sizeof err), "unpack zip: %s", err);
+    CHECK(has("zout/s/DOL/s.dol", "DOL") && fs_exists("zout/s/Apploader/X.zip") && !fs_exists("zout/s/ISO"),
+          "zip: root folder and listed file only");
+}
+#endif
+
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     fs_mkdirs("sd:");   /* the host stand-in for the card root */
@@ -294,6 +337,11 @@ int main(void) {
     test_catalog();
     test_tarxz();
     test_root_replace();
+#ifdef HAVE_LIBZIP
+    test_zip();
+#else
+    printf("(no libzip: zip checks skipped)\n");
+#endif
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

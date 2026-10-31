@@ -6,6 +6,12 @@ SRC     := ../source/json.c ../source/digest.c ../source/catalog.c ../source/fsu
 # liblzma for tarxz.c (on macOS from Homebrew: brew install xz)
 XZ      := $(firstword $(wildcard /opt/homebrew/opt/xz /usr/local/opt/xz))
 LZMA    := $(if $(XZ),-I$(XZ)/include -L$(XZ)/lib) -llzma
+# libzip, when there is one, for the zip checks (CI installs libzip-dev)
+ZIPLIB  := $(firstword $(wildcard /usr/include/zip.h /opt/homebrew/opt/libzip/include/zip.h))
+ifneq ($(ZIPLIB),)
+SRC     += ../source/zipx.c
+LZMA    += -DHAVE_LIBZIP $(if $(findstring homebrew,$(ZIPLIB)),-I/opt/homebrew/opt/libzip/include -L/opt/homebrew/opt/libzip/lib) -lzip
+endif
 BIN     := build/hbtest
 
 test: $(BIN)

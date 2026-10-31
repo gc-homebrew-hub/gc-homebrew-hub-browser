@@ -246,7 +246,16 @@ static void job_install(void) {
     } else {
         set_step("Unpacking");
         set_progress(0, 0);
-        if (!unpack_to_dir(dl, stage, a->root, &cancel_flag, &prog_done, &prog_total, err, sizeof err)) {
+        /* the app's folder, plus the files it may put at the root of the card */
+        const char *only[4] = { a->root };
+        char outer[2][sizeof a->replace[0].from];
+        for (int i = 0; *a->root && i < a->nreplace; i++) {
+            snprintf(outer[i], sizeof outer[i], "%s", a->replace[i].from);
+            char *bang = strchr(outer[i], '!');
+            if (bang) *bang = 0;
+            only[1 + i] = outer[i];
+        }
+        if (!unpack_to_dir(dl, stage, *a->root ? only : NULL, &cancel_flag, &prog_done, &prog_total, err, sizeof err)) {
             snprintf(done_err, sizeof done_err, "%s", err);
             remove(dl); fs_remove_tree(stage); return;
         }
@@ -273,23 +282,47 @@ static void job_install(void) {
     char stamp[160];
     int sl = snprintf(stamp, sizeof stamp, "%s\t%s\t%s\n", a->slug, a->version, a->name);
     if (fs_join(path, sizeof path, appdir, ".gc-homebrew-app")) fs_write_file(path, stamp, (size_t)sl);
-    /* the archive folder for each root file is named after the version it
-     * is: the installed one when it is that version's program, which can only
-     * be told before the old folder goes */
-    char labels[2][32];
+    /* root files come out of the download now, before its folder goes: each
+     * is copied, or unpacked from a zip inside the download, to a file beside
+     * the stage */
+    char hold[2][220], hold_err[2][80];
+    bool held[2] = { false, false };
     for (int i = 0; i < a->nreplace; i++) {
+        char target[64], outer[sizeof a->replace[0].from], src[330];
+        snprintf(hold[i], sizeof hold[i], "%.200s.root%d", stage, i);
+        hold_err[i][0] = 0;
+        remove(hold[i]);
+        snprintf(target, sizeof target, "sd:/%s", a->replace[i].to);
+        if (!job_replace_root || !fs_exists(target)) continue;
+        snprintf(outer, sizeof outer, "%s", a->replace[i].from);
+        char *member = strchr(outer, '!');
+        if (member) *member++ = 0;
+        if (!fs_join(src, sizeof src, stage, outer) || !fs_exists(src))
+            snprintf(hold_err[i], sizeof hold_err[i], "the download has no %.50s", outer);
+        else if (member)
+            held[i] = unzip_file(src, member, hold[i], hold_err[i], sizeof hold_err[i]);
+        else if (!(held[i] = fs_copy_file(src, hold[i])))
+            snprintf(hold_err[i], sizeof hold_err[i], "could not copy it out of the download");
+    }
+    /* one archive folder per install, named after the version the root files
+     * are: the installed one when a root file is that version's program, which
+     * can only be told before the old folder goes */
+    char label[32];
+    bool known = false;
+    for (int i = 0; i < a->nreplace && *job_old_version && *job_old_binary; i++) {
         char target[64], old[300];
         snprintf(target, sizeof target, "sd:/%s", a->replace[i].to);
-        bool known = *job_old_version && *job_old_binary && fs_join(old, sizeof old, dest, job_old_binary) &&
-                     fs_files_equal(target, old);
-        snprintf(labels[i], sizeof labels[i], known ? "%s" : "before-%s", known ? job_old_version : a->version);
-        for (char *c = labels[i]; *c; c++)
-            if (!(isalnum((unsigned char)*c) || *c == '.' || *c == '-' || *c == '_')) *c = '_';
+        if (fs_join(old, sizeof old, dest, job_old_binary) && fs_files_equal(target, old)) known = true;
     }
+    snprintf(label, sizeof label, known ? "%s" : "before-%s", known ? job_old_version : a->version);
+    for (char *c = label; *c; c++)
+        if (!(isalnum((unsigned char)*c) || *c == '.' || *c == '-' || *c == '_')) *c = '_';
     fs_mkdirs(APPS_DIR);
     if (!replace_dir(dest, appdir, err, sizeof err)) {
         snprintf(done_err, sizeof done_err, "%s", err);
-        fs_remove_tree(stage); return;
+        fs_remove_tree(stage);
+        for (int i = 0; i < a->nreplace; i++) remove(hold[i]);
+        return;
     }
     fs_remove_tree(stage);
     /* data folders the app wants at the root of the card; existing files win */
@@ -304,18 +337,21 @@ static void job_install(void) {
     done_note[0] = 0; done_note_error = 0;
     for (int i = 0; job_replace_root && i < a->nreplace; i++) {
         RootFile *r = &a->replace[i];
-        char target[64], src[300], arch[100], moved[300], e[80], note[200];
+        char target[64], arch[100], moved[300], e[80], note[200];
         snprintf(target, sizeof target, "sd:/%s", r->to);
         if (!fs_exists(target)) continue;
-        if (!fs_join(src, sizeof src, dest, r->from) || !fs_exists(src)) {
-            snprintf(note, sizeof note, "%s was not updated: the app has no %s", target, r->from);
+        if (!held[i]) {
+            snprintf(note, sizeof note, "%s was not updated: %s", target, hold_err[i]);
             done_note_error = 1;
-        } else if (fs_files_equal(src, target)) {
+        } else if (fs_files_equal(hold[i], target)) {
+            remove(hold[i]);
             continue;                                   /* already this version */
         } else {
-            set_step("Updating the boot file");
-            snprintf(arch, sizeof arch, "sd:/%s/%s", r->archive, labels[i]);
-            if (fs_replace_archiving(src, target, arch, moved, sizeof moved, e, sizeof e)) {
+            set_step("Updating the boot files");
+            snprintf(arch, sizeof arch, "sd:/%s/%s", r->archive, label);
+            bool ok = fs_replace_archiving(hold[i], target, arch, moved, sizeof moved, e, sizeof e);
+            remove(hold[i]);
+            if (ok) {
                 char *slash = strrchr(moved, '/');
                 if (slash) *slash = 0;
                 snprintf(note, sizeof note, "%s updated; the old one is in %.100s", target, moved);
@@ -331,6 +367,7 @@ static void job_install(void) {
         memcpy(done_note + l, note, n);
         done_note[l + n] = 0;
     }
+    for (int i = 0; i < a->nreplace; i++) remove(hold[i]);
     done_ok = 1;
 }
 

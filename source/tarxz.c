@@ -25,7 +25,8 @@ typedef struct {
     int zero_blocks, entries;
     FILE *out;
     char out_path[512];
-    const char *dest, *only;
+    const char *dest;
+    const char *const *only;
     char *err; size_t errlen;
 } Tar;
 
@@ -101,10 +102,7 @@ static bool tar_entry(Tar *t) {
     char clean[300];
     snprintf(clean, sizeof clean, "%.*s", (int)rl, rel);
     if (!fs_safe_relative(clean)) return fail(t, "The archive contains an unsafe path", "");
-    if (t->only && *t->only) {
-        size_t ol = strlen(t->only);
-        if (strncmp(clean, t->only, ol) || (clean[ol] && clean[ol] != '/')) return true;
-    }
+    if (!fs_path_wanted(clean, t->only)) return true;
     if (++t->entries > MAX_ENTRIES) return fail(t, "The archive has too many files", "");
     char path[512];
     if (!fs_join(path, sizeof path, t->dest, clean)) return fail(t, "A path in the archive is too long", "");
@@ -173,7 +171,7 @@ static bool tar_feed(Tar *t, const unsigned char *p, size_t n) {
     return true;
 }
 
-bool untarxz_to_dir(const char *path, const char *dest, const char *only, volatile int *cancel,
+bool untarxz_to_dir(const char *path, const char *dest, const char *const *only, volatile int *cancel,
                     volatile size_t *done, volatile size_t *total, char *err, size_t errlen) {
     FILE *in = fopen(path, "rb");
     if (!in) { snprintf(err, errlen, "Cannot open the archive"); return false; }

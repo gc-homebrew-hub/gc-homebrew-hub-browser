@@ -259,8 +259,14 @@ bool catalog_parse_index(const char *json, size_t len, int source, App *out, int
                     snprintf(def, sizeof def, "%.31s_archive", a->slug);
                     memcpy(r->archive, def, sizeof def);
                 }
+                /* "outer.zip!member": both halves stay inside their archive */
+                char outer[sizeof r->from];
+                snprintf(outer, sizeof outer, "%s", r->from);
+                char *bang = strchr(outer, '!');
+                if (bang) *bang++ = 0;
+                bool from_ok = fs_safe_relative(outer) && (!bang || fs_safe_relative(bang));
                 /* never into sd:/apps, where the store keeps its own folders */
-                if (fs_safe_relative(r->from) && fs_safe_relative(r->to) && strncasecmp(r->to, "apps/", 5) &&
+                if (from_ok && fs_safe_relative(r->to) && strncasecmp(r->to, "apps/", 5) &&
                     strcasecmp(r->to, "apps") && name_ok(r->archive) && strcasecmp(r->archive, "apps"))
                     a->nreplace++;
             }
@@ -270,6 +276,9 @@ bool catalog_parse_index(const char *json, size_t len, int source, App *out, int
         if (ok && a->bare) {
             size_t bl = strlen(a->binary);
             ok = bl > 4 && !strcasecmp(a->binary + bl - 4, ".dol") && !strchr(a->binary, '/');
+            /* a bare .dol has nothing else to put at the root */
+            for (int i = 0; i < a->nreplace; i++)
+                if (strcmp(a->replace[i].from, a->binary)) a->nreplace = 0;
         }
         if (ok && *a->sha256 && strlen(a->sha256) != 64) a->sha256[0] = 0;
         if (!ok) continue;

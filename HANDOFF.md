@@ -201,14 +201,20 @@ order of risk:
   Only entries under `root` are written to the card. .7z is not supported:
   it needs another decoder and usually 16-64 MB to unpack.
 - `replace_at_root` (Swiss: its .dol over `sd:/ipl.dol`, for PicoBoot or
-  PicoLoader with gekkoboot) only replaces a file that is already on the card,
+  PicoLoader with gekkoboot, and `swiss/patches/apploader.img`, which Swiss
+  reads only for Apploader in-game reset and .tgc files and which embeds its
+  own copy of Swiss) only replaces a file that is already on the card,
   and only after a "Boot file" confirm (B installs to `sd:/apps` only). The
   new copy is written as `<file>.new` and compared first; the old file moves
-  to `sd:/<archive>/<version>/`, named after the installed version when the
-  old file is that version's program, else `before-<new version>`, with `-2`
-  and so on rather than overwriting. Only between the two renames is there no
-  boot file; a failed second rename puts the old one back. Swiss's
-  `swiss/patches/apploader.img` (in a zip inside the .tar.xz) is NOT updated.
+  to `sd:/<archive>/<version>/` (one folder per install), named after the
+  installed version when a root file is that version's program, else
+  `before-<new version>`, with `-2` and so on rather than overwriting. Only
+  between the two renames is there no boot file; a failed second rename puts
+  the old one back. `file` is a path in the download, or `outer.zip!path` for
+  a file in a zip inside it (Swiss's apploader.img is in
+  `Apploader/EXTRACT_TO_ROOT.zip`); the unpacker writes the root folder plus
+  those outer files, and they are copied out to `stage/<slug>.root<n>` before
+  the app folder is swapped in.
   FlippyDrive and GC Loader keep Swiss on their own cards, out of reach.
 - The xz decoder needs about the archive's dictionary size in RAM (8.5 MB for
   Swiss's `xz -6`); `XZ_MEMLIMIT` in `tarxz.c` refuses anything over 16 MB.

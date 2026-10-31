@@ -212,3 +212,12 @@ bool fs_replace_archiving(const char *src, const char *target, const char *archi
     snprintf(moved_to, movedcap, "%s", old);
     return true;
 }
+
+bool fs_path_wanted(const char *path, const char *const *only) {
+    if (!only || !only[0]) return true;
+    for (; *only; only++) {
+        size_t n = strlen(*only);
+        if (n && !strncmp(path, *only, n) && (!path[n] || path[n] == '/')) return true;
+    }
+    return false;
+}

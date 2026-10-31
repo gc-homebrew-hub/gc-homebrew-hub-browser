@@ -82,7 +82,7 @@ The default source list is fetched from the
 An app is downloaded as a zip, a `.tar.xz` or a bare `.dol`; only the folder
 the catalog names is unpacked to the card. An app can also bring a new
 version of a boot file at the root of the card, such as Swiss's `ipl.dol` for
-PicoBoot: if that file is on the card, the program asks before replacing it
+PicoBoot and its `swiss/patches/apploader.img`: if that file is on the card, the program asks before replacing it
 and keeps the old one in an archive folder (`sd:/swiss_archive` for Swiss). That repository's README explains
 how to add an app with a pull request. Any web server can host a source; add its `index.json` address under
 Sources.
