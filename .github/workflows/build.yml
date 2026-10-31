@@ -133,7 +133,7 @@ jobs:
           flatpak info --user org.DolphinEmu.dolphin-emu | sed -n '1,12p'
 
       - name: Run boot.dol in Dolphin
-        run: tools/dolphin/run.sh package/apps/gc-homebrew-hub-browser/boot.dol dolphin-out 40
+        run: tools/dolphin/run.sh package/apps/gc-homebrew-hub-browser/boot.dol dolphin-out 150
 
       - uses: actions/upload-artifact@v4
         if: always()

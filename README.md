@@ -113,7 +113,12 @@ map in a `-symbols-` artifact.
 ### In Dolphin
 
 Open `boot.dol` with Dolphin. For the network, set Config → GameCube → SP1
-to "Broadband Adapter (HLE)". Dolphin has no GameCube SD adapter, so the
+to "Broadband Adapter (HLE)", then in that adapter's settings change the DNS
+server from 3.18.217.27 to a public one such as 1.1.1.1 (in `Dolphin.ini`:
+`BBA_BUILTIN_DNS = 1.1.1.1` under `[Core]`). The default sends every name to a
+game-revival server, so every catalog fails with "TLS handshake failed
+(-0x6E80)". The first connection takes a minute or two: getting an address,
+then the TLS handshake on the emulated CPU. Dolphin has no GameCube SD adapter, so the
 program runs without a card: the catalogs load and can be browsed, but
 nothing can be installed and Installed stays empty.
 
