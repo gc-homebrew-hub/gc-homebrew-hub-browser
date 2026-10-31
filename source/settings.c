@@ -5,7 +5,7 @@
 #include <string.h>
 
 #ifndef DEFAULT_SOURCES_URL
-#define DEFAULT_SOURCES_URL "https://raw.githubusercontent.com/michaellunzer/gc-homebrew-hub/main/sources.json"
+#define DEFAULT_SOURCES_URL "https://raw.githubusercontent.com/gc-homebrew-hub/gc-homebrew-hub-catalog/main/sources.json"
 #endif
 
 Settings g_settings;

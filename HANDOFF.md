@@ -1,6 +1,6 @@
 # Handoff: GC Homebrew Hub Browser
 
-Last updated 2026-10-25 (names chosen: GC Homebrew Hub = the catalog, GC Homebrew Hub Browser = the program). Read this before continuing the work; README.md
+Last updated 2026-10-25 (names chosen: gc-homebrew-hub-catalog = the catalog repository, whose source is shown on the console as "GC Homebrew Hub"; GC Homebrew Hub Browser = the program). Read this before continuing the work; README.md
 covers what the program is and how to build it.
 
 ## The goal
@@ -22,9 +22,16 @@ confirming again installs it.
 
 | Repo | Where | Remote | Status |
 |---|---|---|---|
-| gc-homebrew-hub-browser (this one) | `~/Documents/GitHub/gc-homebrew-hub-browser` | private, `michaellunzer/gc-homebrew-hub-browser` | the program; pushing here is fine |
-| gc-homebrew-hub (the catalog, formerly cubebrowser-apps) | `~/Documents/GitHub/gc-homebrew-hub` | none yet | local only; the default source URL expects it at `michaellunzer/gc-homebrew-hub`; do not create or push it without being asked |
+| gc-homebrew-hub-browser (this one) | `~/Documents/GitHub/gc-homebrew-hub-browser` | private, `gc-homebrew-hub/gc-homebrew-hub-browser` | the program; pushing here is fine |
+| gc-homebrew-hub-catalog (the catalog, formerly cubebrowser-apps) | `~/Documents/GitHub/gc-homebrew-hub-catalog` | public, `gc-homebrew-hub/gc-homebrew-hub-catalog` | `sources.json` and `index.json` on `main` are what consoles load; changes go through pull requests, checked by `scripts/validate.py --download` |
 | CubeBrowser (web browser) | `~/Documents/GitHub/Cubebrowser`, worktree branch `claude/cubebrowser-homebrew-apps-9f7d9c` | origin is upstream `Arial-Bold/Cubebrowser`, never pushed | contains the first, in-browser version of the store (`about:apps`). The owner decided the two should be separate and to leave that branch as it is for now. Never push, fork or open anything upstream from it. |
+
+On 2026-10-31 this repository moved from `michaellunzer` to the
+`gc-homebrew-hub` organization (GitHub redirects the old address); the
+original catalog (a local folder only, with CubeBrowser,
+Flashcube and GC-MP3) had been lost, so the catalog was recreated as the public
+`gc-homebrew-hub-catalog` repository with CubeBrowser 2.8 only: Flashcube and
+GC-MP3 have no public releases to point at.
 
 History: the store was first built inside CubeBrowser (commits a5af82d,
 f5cd0e7, a3b3309, b8c210e on that branch, with a host test harness under
@@ -131,15 +138,16 @@ order of risk:
    `docker run --rm -v "$PWD:/src" -w /src ghcr.io/extremscorner/libogc2:latest make`
    and `make package`; copy `package/apps` to the root of the card.
 2. Start the catalog server on the Mac from the catalog repo:
-   `~/Documents/GitHub/gc-homebrew-hub/scripts/serve.sh` (port 8765; it
-   prints the LAN address). The catalog has CubeBrowser, Flashcube (zip with a
-   root data folder) and GC-MP3 (bare .dol release).
+   `~/Documents/GitHub/gc-homebrew-hub-catalog/scripts/serve.sh` (port 8765;
+   it prints the LAN address), only to test catalog changes before they are
+   merged.
 3. The default source list URL (`settings.ini` key `sources_url`, default in
-   `settings.c`) points at `raw.githubusercontent.com/michaellunzer/gc-homebrew-hub`,
-   which does not exist yet, so expect "Source list not loaded".
-   Add the LAN source on the console: Sources, X, type
+   `settings.c`) is
+   `raw.githubusercontent.com/gc-homebrew-hub/gc-homebrew-hub-catalog/main/sources.json`.
+   For a local catalog, add the LAN source on the console: Sources, X, type
    `http://<mac-ip>:8765/index.json`.
-4. Then: refresh, install Flashcube and GC-MP3, check `sd:/apps/<folder>`,
+4. Then: refresh, install CubeBrowser (a zip with a `root` folder and a `keep`
+   folder; a bare `.dol` entry and `copy_to_root` still need a test app), check `sd:/apps/<folder>`,
    `installed.txt` and the stamp file, start an app, bump a version in the
    catalog and confirm the Installed screen's Y filter offers the update,
    remove an app.
@@ -147,9 +155,8 @@ order of risk:
 ## Next steps (suggested order)
 
 1. Hardware test and fix what it finds.
-2. Publish the catalog repo as `michaellunzer/gc-homebrew-hub` (the default
-   source URL in `settings.c` already expects that; raw.githubusercontent.com
-   needs the repo to be public, or the URL must point at a server you run).
+2. Grow the catalog (`gc-homebrew-hub/gc-homebrew-hub-catalog`), including
+   at least one bare `.dol` app and one using `copy_to_root`.
 3. Phase 2 ideas from the original plan: app icons in the catalog (JSON
    field + download + texture LRU), search, a sound on menu moves, argv for
    extra arguments, a quiet start-up update count shown on the cube screen
