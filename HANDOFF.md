@@ -128,6 +128,11 @@ order of risk:
 2. TLS on the console: entropy comes from the time base; certificate dates
    depend on SNTP or the console clock. Failures show as toasts such as
    "TLS handshake failed (-0x....)" (mbedTLS error strings are compiled out).
+   In Dolphin, -0x6E80 was not our TLS code: the HLE adapter's default DNS
+   (3.18.217.27) answers every name with itself and speaks only old SSL. With
+   `BBA_BUILTIN_DNS = 1.1.1.1` the handshake to GitHub completes in Dolphin
+   (about a minute after boot); the host test (`tests/net` on the
+   `claude/amazing-euler-179wg6` branch) also completes it.
 3. DNS: resolver asks the gateway, then 1.1.1.1 and 8.8.8.8 over UDP 53.
 4. The DOL stub and `SYS_ResetSystem(SYS_SHUTDOWN)` sequence (`dol.c`).
 5. libfat `rename` of directories during the folder swap.
