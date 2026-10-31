@@ -191,7 +191,18 @@ order of risk:
 - Catalog format 1 field reference: `scripts/validate.py` and README in the
   catalog repo. Fields the store understands: slug, name, author, version,
   category (games/emulators/media/utilities/demos), short, long, homepage,
-  zip or dol, zip_size, sha256, root, binary, folder, keep[], copy_to_root[],
-  updated. Limits: 256 apps per source, index at most 256 KB, 16 sources.
+  zip, archive or dol, zip_size, sha256, root, binary, folder, keep[],
+  copy_to_root[], updated. Limits: 256 apps per source, index at most 256 KB,
+  16 sources.
+- Downloads are unpacked by their first bytes, not their name: a zip
+  (libzip) or a .tar.xz (`tarxz.c`, liblzma, which libzip already pulls in).
+  Catalogs name a .tar.xz with `archive` rather than `zip` so that versions
+  without .tar.xz support skip the entry instead of failing to install it.
+  Only entries under `root` are written to the card. .7z is not supported:
+  it needs another decoder and usually 16-64 MB to unpack.
+- The xz decoder needs about the archive's dictionary size in RAM (8.5 MB for
+  Swiss's `xz -6`); `XZ_MEMLIMIT` in `tarxz.c` refuses anything over 16 MB.
+  Whether 8.5 MB is free on the console during an install has NOT been
+  measured on hardware.
 - Memory for the next session: see
   `~/.claude/projects/-Users-michael-lunzer-Documents-GitHub-Cubebrowser/memory/`.

@@ -4,6 +4,8 @@
 #include "digest.h"
 #include "fsutil.h"
 #include "json.h"
+#include "tarxz.h"
+#include <lzma.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -138,6 +140,120 @@ static void test_fs(void) {
     CHECK(fs_join(j, sizeof j, "sd:/a/", "b") && !strcmp(j, "sd:/a/b") && !fs_join(j, sizeof j, "sd:/aaaaaaaaaa", "bbbbbbbb"), "join");
 }
 
+/* ---- .tar.xz: archives built here, then compressed with liblzma ---- */
+
+typedef struct { unsigned char *p; size_t n, cap; } Buf;
+
+static void put(Buf *b, const void *d, size_t n) {
+    if (b->n + n > b->cap) { b->cap = (b->n + n) * 2; b->p = realloc(b->p, b->cap); }
+    memcpy(b->p + b->n, d, n); b->n += n;
+}
+
+static void tar_add(Buf *b, const char *name, char type, const char *data, size_t len) {
+    unsigned char h[512] = { 0 };
+    snprintf((char *)h, 100, "%s", name);
+    snprintf((char *)h + 100, 8, "%07o", 0644);
+    snprintf((char *)h + 124, 12, "%011o", (unsigned)len);
+    memset(h + 148, ' ', 8);
+    h[156] = (unsigned char)type;
+    memcpy(h + 257, "ustar\0" "00", 8);
+    unsigned sum = 0;
+    for (int i = 0; i < 512; i++) sum += h[i];
+    snprintf((char *)h + 148, 8, "%06o", sum);
+    put(b, h, 512);
+    put(b, data, len);
+    static const unsigned char zero[512];
+    put(b, zero, (512 - len % 512) % 512);
+}
+
+/* Writes `tar` as name, xz-compressed with an LZMA2 dictionary of dict bytes */
+static bool write_xz(const char *name, const Buf *tar, uint32_t dict) {
+    lzma_options_lzma opt;
+    lzma_lzma_preset(&opt, 1);
+    opt.dict_size = dict;
+    lzma_filter f[2] = { { LZMA_FILTER_LZMA2, &opt }, { LZMA_VLI_UNKNOWN, NULL } };
+    size_t cap = tar->n + 4096, n = 0;
+    unsigned char *out = malloc(cap);
+    bool ok = lzma_stream_buffer_encode(f, LZMA_CHECK_CRC64, NULL, tar->p, tar->n, out, &n, cap) == LZMA_OK &&
+              fs_write_file(name, out, n);
+    free(out);
+    return ok;
+}
+
+static bool has(const char *path, const char *want) {
+    char *d; size_t n;
+    if (!fs_read_file(path, &d, &n, 1 << 20)) return false;
+    bool ok = n == strlen(want) && !memcmp(d, want, n);
+    free(d);
+    return ok;
+}
+
+static void test_tarxz(void) {
+    char err[128], longname[200];
+    Buf b = { 0 };
+    tar_add(&b, "pkg/", '5', "", 0);
+    tar_add(&b, "pkg/app/boot.dol", '0', "DOL", 3);
+    tar_add(&b, "./pkg/app/data/x.txt", '0', "x", 1);
+    snprintf(longname, sizeof longname, "pkg/app/%0120d.txt", 7);
+    tar_add(&b, "././@LongLink", 'L', longname, strlen(longname) + 1);
+    tar_add(&b, "truncated-by-tar", '0', "long", 4);
+    const char *pax = "29 path=pkg/app/pax-name.txt\n";
+    tar_add(&b, "PaxHeaders/x", 'x', pax, strlen(pax));
+    tar_add(&b, "pkg/app/short-name", '0', "pax", 3);
+    tar_add(&b, "pkg/app/link", '2', "", 0);
+    tar_add(&b, "pkg/app/empty", '0', "", 0);
+    tar_add(&b, "pkg/other/big.iso", '0', "ISO", 3);
+    tar_add(&b, "pkg/appendix.txt", '0', "no", 2);
+    static const unsigned char end[1024];
+    put(&b, end, sizeof end);
+    CHECK(write_xz("a.tar.xz", &b, 1 << 20), "encode");
+    size_t done = 0, total = 0;
+    fs_remove_tree("out");
+    CHECK(untarxz_to_dir("a.tar.xz", "out", "pkg/app", NULL, &done, &total, err, sizeof err), "unpack: %s", err);
+    CHECK(has("out/pkg/app/boot.dol", "DOL") && has("out/pkg/app/data/x.txt", "x"), "files written");
+    char path[300];
+    snprintf(path, sizeof path, "out/%s", longname);
+    CHECK(has(path, "long"), "GNU long name");
+    CHECK(has("out/pkg/app/pax-name.txt", "pax") && !fs_exists("out/pkg/app/short-name"), "pax path");
+    CHECK(has("out/pkg/app/empty", ""), "empty file");
+    CHECK(!fs_exists("out/pkg/app/link"), "link skipped");
+    CHECK(!fs_exists("out/pkg/other") && !fs_exists("out/pkg/appendix.txt"), "only the root folder is written");
+    CHECK(total > 0 && done == total, "progress %zu/%zu", done, total);
+    fs_remove_tree("out");
+    CHECK(untarxz_to_dir("a.tar.xz", "out", "", NULL, NULL, NULL, err, sizeof err) &&
+          has("out/pkg/other/big.iso", "ISO"), "everything without a root: %s", err);
+
+    /* a cut-off download */
+    char *d; size_t n;
+    fs_read_file("a.tar.xz", &d, &n, 1 << 20);
+    fs_write_file("cut.tar.xz", d, n / 2);
+    free(d);
+    CHECK(!untarxz_to_dir("cut.tar.xz", "out2", "", NULL, NULL, NULL, err, sizeof err), "cut archive refused");
+
+    Buf bad = { 0 };
+    tar_add(&bad, "../evil", '0', "x", 1);
+    put(&bad, end, sizeof end);
+    write_xz("bad.tar.xz", &bad, 1 << 20);
+    CHECK(!untarxz_to_dir("bad.tar.xz", "out3", "", NULL, NULL, NULL, err, sizeof err) && !fs_exists("evil"),
+          "unsafe path refused");
+
+    /* a dictionary too big for the console is refused up front, with a reason */
+    write_xz("huge.tar.xz", &b, 64u << 20);
+    CHECK(!untarxz_to_dir("huge.tar.xz", "out4", "", NULL, NULL, NULL, err, sizeof err) && strstr(err, "MB of memory"),
+          "memory limit: %s", err);
+
+    fs_write_file("junk.tar.xz", "PK\3\4 not xz", 11);
+    CHECK(!untarxz_to_dir("junk.tar.xz", "out5", "", NULL, NULL, NULL, err, sizeof err), "not xz refused");
+    free(b.p); free(bad.p);
+
+    /* a catalog entry names a .tar.xz with "archive" */
+    const char *idx = "{\"format\":1,\"apps\":[{\"slug\":\"swiss\",\"archive\":\"https://x.org/s.tar.xz\","
+                      "\"root\":\"s/DOL\",\"binary\":\"s.dol\"}]}";
+    App app; int na = 0;
+    CHECK(catalog_parse_index(idx, strlen(idx), 0, &app, &na, 1, NULL, 0, err, sizeof err) && na == 1 &&
+          !app.bare && !strcmp(app.url, "https://x.org/s.tar.xz"), "archive field: %s", err);
+}
+
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     fs_mkdirs("sd:");   /* the host stand-in for the card root */
@@ -145,6 +261,7 @@ int main(void) {
     test_sha();
     test_fs();
     test_catalog();
+    test_tarxz();
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

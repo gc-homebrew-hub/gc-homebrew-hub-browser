@@ -190,7 +190,7 @@ static void job_install(void) {
     App *a = &job_app;
     char err[128], dl[200], stage[200], appdir[260], dest[200], path[300];
     const char *data = catalog_datadir();
-    snprintf(dl, sizeof dl, "%s/dl/%.31s.%s", data, a->slug, a->bare ? "dol" : "zip");
+    snprintf(dl, sizeof dl, "%s/dl/%.31s.%s", data, a->slug, a->bare ? "dol" : "pkg");
     snprintf(stage, sizeof stage, "%s/stage/%.31s", data, a->slug);
     snprintf(dest, sizeof dest, APPS_DIR "/%.47s", a->folder);
     done_ok = 0;
@@ -241,7 +241,7 @@ static void job_install(void) {
     } else {
         set_step("Unpacking");
         set_progress(0, 0);
-        if (!unzip_to_dir(dl, stage, &cancel_flag, &prog_done, &prog_total, err, sizeof err)) {
+        if (!unpack_to_dir(dl, stage, a->root, &cancel_flag, &prog_done, &prog_total, err, sizeof err)) {
             snprintf(done_err, sizeof done_err, "%s", err);
             remove(dl); fs_remove_tree(stage); return;
         }

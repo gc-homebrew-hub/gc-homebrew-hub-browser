@@ -1,5 +1,6 @@
 #include "zipx.h"
 #include "fsutil.h"
+#include "tarxz.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,8 +8,8 @@
 
 #define BUF_SIZE 65536
 
-bool unzip_to_dir(const char *zip_path, const char *dest, volatile int *cancel,
-                  volatile size_t *done, volatile size_t *total, char *err, size_t errlen) {
+static bool unzip_to_dir(const char *zip_path, const char *dest, const char *only, volatile int *cancel,
+                         volatile size_t *done, volatile size_t *total, char *err, size_t errlen) {
     int zerr = 0;
     zip_t *z = zip_open(zip_path, ZIP_RDONLY, &zerr);
     if (!z) {
@@ -41,6 +42,10 @@ bool unzip_to_dir(const char *zip_path, const char *dest, volatile int *cancel,
         snprintf(clean, sizeof clean, "%.*s", (int)(is_dir ? rl - 1 : rl), rel);
         if (!*clean) continue;
         if (!fs_safe_relative(clean)) { snprintf(err, errlen, "The zip contains an unsafe path"); ok = false; break; }
+        if (only && *only) {
+            size_t ol = strlen(only);
+            if (strncmp(clean, only, ol) || (clean[ol] && clean[ol] != '/')) continue;
+        }
         char path[512];
         if (!fs_join(path, sizeof path, dest, clean)) { snprintf(err, errlen, "A path in the zip is too long"); ok = false; break; }
         if (is_dir) { ok = fs_mkdirs(path); if (!ok) snprintf(err, errlen, "Cannot create a folder on the card"); continue; }
@@ -68,4 +73,19 @@ bool unzip_to_dir(const char *zip_path, const char *dest, volatile int *cancel,
     free(buf);
     zip_discard(z);
     return ok;
+}
+
+bool unpack_to_dir(const char *path, const char *dest, const char *only, volatile int *cancel,
+                   volatile size_t *done, volatile size_t *total, char *err, size_t errlen) {
+    unsigned char magic[6] = { 0 };
+    FILE *f = fopen(path, "rb");
+    if (!f) { snprintf(err, errlen, "Cannot open the download"); return false; }
+    size_t n = fread(magic, 1, sizeof magic, f);
+    fclose(f);
+    if (n >= 4 && !memcmp(magic, "PK\3\4", 4))
+        return unzip_to_dir(path, dest, only, cancel, done, total, err, errlen);
+    if (n == 6 && !memcmp(magic, "\xfd" "7zXZ\0", 6))
+        return untarxz_to_dir(path, dest, only, cancel, done, total, err, errlen);
+    snprintf(err, errlen, "The download is not a zip or .tar.xz");
+    return false;
 }
