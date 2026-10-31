@@ -150,7 +150,7 @@ GX texture in IA4 format (about 79 KB in all). Each glyph is drawn 1:1 at a
 whole-pixel position with no filtering, so nothing is scaled or blurred. The
 generated file is committed; after changing the sizes in the script, run
 `make font` (needs Python 3 with Pillow). `make package` puts the licence on
-the card as `font-license.txt`.
+the card as `licenses/inter-ofl.txt`.
 
 ## Layout
 
@@ -173,3 +173,11 @@ the card as `font-license.txt`.
   catalog format carries no icons yet.
 - Tested on the host harness and the toolchain; hardware testing is what
   comes next.
+
+## Licence
+
+GC Homebrew Hub Browser is under the [MIT License](LICENSE). The libraries
+built into `boot.dol`, the Inter font and the CA bundle keep their own
+licences, listed in [licenses/README.txt](licenses/README.txt);
+`make package` puts the MIT License (`license.txt`) and that folder next to
+`boot.dol`.

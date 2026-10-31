@@ -98,7 +98,9 @@ package:
 	@rm -rf package && mkdir -p package/apps/gc-homebrew-hub-browser
 	@cp $(TARGET).dol package/apps/gc-homebrew-hub-browser/boot.dol
 	@cp data/cacert.pem package/apps/gc-homebrew-hub-browser/cacert.pem
-	@cp tools/font/OFL.txt package/apps/gc-homebrew-hub-browser/font-license.txt
+	@cp LICENSE package/apps/gc-homebrew-hub-browser/license.txt
+	@cp -R licenses package/apps/gc-homebrew-hub-browser/licenses
+	@cp tools/font/OFL.txt package/apps/gc-homebrew-hub-browser/licenses/inter-ofl.txt
 	@echo "package/ is ready: copy its apps folder to the root of the SD card"
 
 else
