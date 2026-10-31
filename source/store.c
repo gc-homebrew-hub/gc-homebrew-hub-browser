@@ -341,7 +341,7 @@ static void job_install(void) {
         snprintf(target, sizeof target, "sd:/%s", r->to);
         if (!fs_exists(target)) continue;
         if (!held[i]) {
-            snprintf(note, sizeof note, "%s was not updated: %s", target, hold_err[i]);
+            snprintf(note, sizeof note, "%s was not updated: %.79s", target, hold_err[i]);
             done_note_error = 1;
         } else if (fs_files_equal(hold[i], target)) {
             remove(hold[i]);
