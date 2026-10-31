@@ -524,11 +524,15 @@ int ui_confirm_update(u32 p) {
 void ui_confirm_draw(void) {
     if (!cf.active) return;
     gfx_rect(0, 0, SCREEN_W, SCREEN_H, RGBA(0, 0, 0, 150));
-    float w = 440, h = 196, x = (SCREEN_W - w) / 2, y = (SCREEN_H - h) / 2;
+    /* three lines fit the usual size; a longer question makes it taller */
+    float w = 440;
+    int lines = font_draw_wrapped(0, 0, FS_BODY, C_TEXT_DIM, cf.text, w - 44, 6, false);
+    float h = 196 + (lines > 3 ? (lines - 3) * font_line_pitch(FS_BODY) : 0);
+    float x = (SCREEN_W - w) / 2, y = (SCREEN_H - h) / 2;
     ui_panel(x, y, w, h);
     ui_desc_bar(x + 12, y + 12, w - 24, 32);
     font_draw(x + 22, y + 12 + (32 - font_height(FS_BODY)) / 2, FS_BODY, C_TEXT, cf.title);
-    font_draw_wrapped(x + 22, y + 58, FS_BODY, C_TEXT_DIM, cf.text, w - 44, 3, true);
+    font_draw_wrapped(x + 22, y + 58, FS_BODY, C_TEXT_DIM, cf.text, w - 44, 6, true);
     /* the two answers, as glass buttons; the gold ring is on yes */
     float bw = 160, bh = 34, by = y + h - bh - 16, gap = 24, bx = x + (w - 2 * bw - gap) / 2;
     char yes[40], no[40];

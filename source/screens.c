@@ -142,11 +142,12 @@ static const char *action_label(int act) {
  * the card that it brings a new version of (replace_at_root) */
 static void start_install(int i) {
     char list[120], t[320];
-    if (!store_root_targets(i, list, sizeof list)) { store_request_install(i, false); return; }
+    int n = store_root_targets(i, list, sizeof list);
+    if (!n) { store_request_install(i, false); return; }
     App *a = catalog_app(i);
-    snprintf(t, sizeof t, "Replace %s with %s %s too? The old one is moved to sd:/%s.", list, a->name, a->version,
-             a->replace[0].archive);
-    ui_confirm_open("Boot file", t, "Replace", "Apps only");
+    snprintf(t, sizeof t, "Also replace %s with %s %s? The old %s to sd:/%s.", list, a->name, a->version,
+             n == 1 ? "one goes" : "ones go", a->replace[0].archive);
+    ui_confirm_open(n == 1 ? "Boot file" : "Boot files", t, "Replace", "Apps only");
     pending_action = 5; pending_index = i;
 }
 

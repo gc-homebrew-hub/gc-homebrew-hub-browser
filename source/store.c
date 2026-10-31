@@ -541,7 +541,7 @@ int store_root_targets(int i, char *list, size_t cap) {
         snprintf(target, sizeof target, "sd:/%s", a->replace[k].to);
         if (!fs_exists(target)) continue;
         size_t l = strlen(list);
-        snprintf(list + l, cap - l, "%s%s", n ? ", " : "", target);
+        snprintf(list + l, cap - l, "%s%s", n ? " and " : "", target);
         n++;
     }
     return n;

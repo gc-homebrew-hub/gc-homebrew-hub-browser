@@ -26,7 +26,7 @@ void store_request_refresh(void);
 /* replace_root: also replace the app's root files (replace_at_root) that are
  * on the card, moving the old ones to its archive folder */
 void store_request_install(int app_index, bool replace_root);
-/* The app's root files that are on the card now, as "sd:/ipl.dol, ..." in
+/* The app's root files that are on the card now, as "sd:/ipl.dol and ..." in
  * list; returns how many (0: nothing to ask about). */
 int  store_root_targets(int app_index, char *list, size_t cap);
 void store_request_remove(int installed_index);
