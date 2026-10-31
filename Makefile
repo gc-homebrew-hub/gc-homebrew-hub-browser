@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------------
 .SUFFIXES:
 
-ifeq (,$(filter test preview package clean,$(MAKECMDGOALS)))
+ifeq (,$(filter test preview font package clean,$(MAKECMDGOALS)))
 ifeq ($(strip $(DEVKITPPC)),)
 $(error "DEVKITPPC is not set. Use the Docker command in README.md")
 endif
@@ -21,7 +21,7 @@ SOURCES		:=	source $(MBEDTLS)/library
 DATA		:=
 INCLUDES	:=	source
 
-ifeq (,$(filter test preview package clean,$(MAKECMDGOALS)))
+ifeq (,$(filter test preview font package clean,$(MAKECMDGOALS)))
 ifeq ($(BUILD),$(notdir $(CURDIR)))
 else
 ifeq ($(wildcard $(MBEDTLS)/library/ssl_tls.c),)
@@ -68,7 +68,7 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES), -iquote $(CURDIR)/$(dir)) \
 
 export LIBPATHS	:=	-L$(LIBOGC_LIB) $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
-.PHONY: $(BUILD) clean test preview package
+.PHONY: $(BUILD) clean test preview font package
 
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
@@ -87,12 +87,18 @@ test:
 preview:
 	@$(MAKE) --no-print-directory -C tools/preview
 
+# "make font" bakes source/font_data.c from tools/font (needs Python 3 with
+# Pillow); the result is committed, so only run it after changing the sizes
+font:
+	@python3 tools/font/bake_font.py source/font_data.c
+
 # What goes on the SD card: package/apps/gc-homebrew-hub-browser/ (build first)
 package:
 	@test -f $(TARGET).dol || { echo "Build $(TARGET).dol first (see README.md)"; exit 1; }
 	@rm -rf package && mkdir -p package/apps/gc-homebrew-hub-browser
 	@cp $(TARGET).dol package/apps/gc-homebrew-hub-browser/boot.dol
 	@cp data/cacert.pem package/apps/gc-homebrew-hub-browser/cacert.pem
+	@cp tools/font/OFL.txt package/apps/gc-homebrew-hub-browser/font-license.txt
 	@echo "package/ is ready: copy its apps folder to the root of the SD card"
 
 else

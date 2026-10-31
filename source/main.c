@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     (void)argc; (void)argv;
     video_init();
     input_init();
-    bool have_font = font_init();
+    font_init();
     bool have_card = mount_card();
     char path[160];
     if (have_card) {
@@ -71,14 +71,12 @@ int main(int argc, char **argv) {
         ui_backdrop();
         if (!have_card) {
             menu_draw(false);
-            if (have_font) {
-                float w = 440, h = 120, x = (SCREEN_W - w) / 2, y = 190;
-                ui_panel(x, y, w, h);
-                ui_desc_bar(x + 12, y + 12, w - 24, 28);
-                font_draw(x + 22, y + 12 + (28 - font_height(FS_BODY)) / 2, FS_BODY, C_TEXT, "No SD card found");
-                font_draw(x + 22, y + 54, FS_SMALL, C_TEXT_DIM, "Insert a card (SD2SP2, or an SD adapter in slot A or B).");
-                ui_hints(x + 22, y + 82, "A  Try again");
-            }
+            float w = 480, h = 132, x = (SCREEN_W - w) / 2, y = 180;
+            ui_panel(x, y, w, h);
+            ui_desc_bar(x + 12, y + 12, w - 24, 32);
+            font_draw(x + 22, y + 12 + (32 - font_height(FS_BODY)) / 2, FS_BODY, C_TEXT, "No SD card found");
+            font_draw(x + 22, y + 58, FS_SMALL, C_TEXT_DIM, "Insert a card (SD2SP2, or an SD adapter in slot A or B).");
+            ui_hints(x + 22, y + 92, "A  Try again");
         } else {
             screens_draw(!menu_focused());
             menu_draw(true);

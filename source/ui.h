@@ -11,13 +11,13 @@
 
 /* text */
 #define C_TEXT        RGB(255, 255, 255)
-#define C_TEXT_DIM    RGB(198, 208, 222)
-#define C_TEXT_FAINT  RGB(146, 158, 176)
-#define C_TEXT_DARK   RGB(38, 30, 6)       /* on gold */
+#define C_TEXT_DIM    RGB(216, 224, 236)
+#define C_TEXT_FAINT  RGB(176, 188, 204)
+#define C_TEXT_DARK   RGB(30, 23, 0)       /* on gold */
 /* state */
-#define C_GOLD        RGB(232, 207, 74)    /* the selection, updates */
-#define C_GOOD        RGB(150, 226, 164)
-#define C_BAD         RGB(255, 142, 128)
+#define C_GOLD        RGB(246, 218, 84)    /* the selection, updates */
+#define C_GOOD        RGB(150, 236, 168)
+#define C_BAD         RGB(255, 150, 136)
 
 /* the frame, in the 640x480 layout */
 #define FRAME_X     19
@@ -29,14 +29,14 @@
 #define BODY_Y      94                      /* between the title bar and the dock */
 #define BODY_BOTTOM 416
 #define SIDE_X      FRAME_X
-#define SIDE_W      150
-#define MAIN_X      181                     /* the list or panel right of the side pane */
+#define SIDE_W      166
+#define MAIN_X      197                     /* the list or panel right of the side pane */
 #define MAIN_W      (FRAME_X + FRAME_W - MAIN_X)
 
 /* the list: frosted rows, then the description bar under them */
-#define ROW_H       40
-#define ROW_PITCH   46
-#define LIST_ROWS   6
+#define ROW_H       46
+#define ROW_PITCH   52
+#define LIST_ROWS   5
 #define ROW_W       (MAIN_W - 16)           /* room for the scroll bar */
 #define DESC_Y      (BODY_Y + LIST_ROWS * ROW_PITCH + 2)
 #define DESC_H      (BODY_BOTTOM - DESC_Y)

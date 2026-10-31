@@ -173,8 +173,8 @@ static void details_draw(void) {
 
     /* the side pane: a plate and the facts */
     float y = ui_side_pane(a ? "App" : "On the card");
-    ui_plate(SIDE_X + 12, y, SIDE_W - 24, 56, name);
-    y += 56 + 12;
+    ui_plate(SIDE_X + 12, y, SIDE_W - 24, 44, name);
+    y += 44 + 10;
     char v[64];
     if (a) {
         ui_side_line(&y, "Version", a->version, C_TEXT);
@@ -207,8 +207,8 @@ static void details_draw(void) {
     ty += 10;
     if (a) {
         const char *desc = *a->description ? a->description : a->summary;
-        int n = font_draw_wrapped(lx, ty, FS_BODY, C_TEXT, desc, tw, 7, true);
-        ty += n * font_height(FS_BODY) * 1.05f + 8;
+        int n = font_draw_wrapped(lx, ty, FS_BODY, C_TEXT, desc, tw, 6, true);
+        ty += n * font_line_pitch(FS_BODY) + 8;
         if (a->nto_root) {
             snprintf(line, sizeof line, "Also puts %s at the root of the card.", a->to_root[0]);
             font_draw_clip(lx, ty, FS_SMALL, C_TEXT_DIM, line, tw); ty += font_height(FS_SMALL) + 4;
@@ -222,11 +222,11 @@ static void details_draw(void) {
 
     /* the actions along the bottom of the panel */
     details_actions();
-    float bh = 30, by = py + ph - bh - 14;
+    float bh = 34, by = py + ph - bh - 14;
     if (store_busy()) {
         snprintf(line, sizeof line, "%s...", store_step());
         font_draw(lx, by + (bh - font_height(FS_BODY)) / 2, FS_BODY, C_TEXT, line);
-        ui_progress(lx + 150, by + 10, tw - 150, 10, store_progress());
+        ui_progress(lx + 170, by + 12, tw - 170, 10, store_progress());
         return;
     }
     float bx = lx;
@@ -258,7 +258,7 @@ static int storescr_update(u32 p) {
 static void storescr_draw(void) {
     build_store();
     float y = ui_side_pane("Categories");
-    for (int c = 0; c < NCATS; c++, y += 22) {
+    for (int c = 0; c < NCATS; c++, y += 24) {
         int n = 0;
         for (int i = 0; i < catalog_app_count(); i++)
             if (!c || !strcasecmp(catalog_app(i)->category, cat_keys[c])) n++;

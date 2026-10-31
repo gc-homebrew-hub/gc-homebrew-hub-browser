@@ -47,17 +47,20 @@ int menu_update(u32 p) {
 void menu_draw(bool with_dock) {
     ui_title_bar();
     if (!with_dock) return;
-    const float bw = 100, bh = 30, by = DOCK_Y + 6;
+    const float bw = 108, bh = 30, gap = 10, by = DOCK_Y + 6;
+    const float x0 = FRAME_X + (FRAME_W - NBUTTONS * bw - (NBUTTONS - 1) * gap) / 2;
     ui_panel(FRAME_X, DOCK_Y, FRAME_W, DOCK_H);
     Screen cur = screens_section();
     for (int i = 0; i < NBUTTONS; i++) {
-        float bx = 32 + i * 119;
+        float bx = x0 + i * (bw + gap);
         bool here = buttons[i].screen == (int)cur;
         ui_button(bx, by, bw, bh, here);
         if (focused && sel == i) ui_ring(bx, by, bw, bh, true);
         Color c = here ? C_TEXT_DARK : C_TEXT;
-        ui_icon(buttons[i].icon, bx + 20, by + bh / 2, 18, c);
-        font_draw(bx + 36, by + (bh - font_height(FS_SMALL)) / 2, FS_SMALL, c, buttons[i].label);
+        /* the pictogram and the label, centred together */
+        float lw = font_width(buttons[i].label, FS_SMALL), gx = bx + (bw - 16 - 7 - lw) / 2;
+        ui_icon(buttons[i].icon, gx + 8, by + bh / 2, 16, c);
+        font_draw(gx + 23, by + (bh - font_height(FS_SMALL)) / 2, FS_SMALL, c, buttons[i].label);
         if (buttons[i].screen == SCR_INSTALLED) ui_count_badge(bx + bw + 4, by - 8, catalog_update_count());
     }
 }

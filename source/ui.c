@@ -131,7 +131,7 @@ void ui_panel(float x, float y, float w, float h) {
 }
 
 void ui_row(float x, float y, float w, float h) {
-    gfx_rect_gradient(x, y, w, h, RGBA(76, 94, 114, 205), RGBA(40, 54, 70, 215));
+    gfx_rect_gradient(x, y, w, h, RGBA(60, 76, 96, 228), RGBA(30, 42, 56, 236));
     gfx_rect(x + 1, y + 1, w - 2, 1, RGBA(255, 255, 255, 40));
     ui_outline(x, y, w, h, 2, 1, RGBA(215, 225, 240, 153));
 }
@@ -223,17 +223,17 @@ static float hint_draw(float x, float y, const char *hint, int n, bool draw) {
     char key[16], lab[64];
     snprintf(key, sizeof key, "%.*s", (int)(sep - hint), hint);
     snprintf(lab, sizeof lab, "%.*s", (int)(hint + n - sep - 2), sep + 2);
-    const float ks = 0.45f, ch = 16;
-    float kw = font_width(key, ks) + 10;
-    if (kw < 20) kw = 20;
+    const float ch = 20;
+    float kw = font_width(key, FS_KEY) + 12;
+    if (kw < 22) kw = 22;
     if (draw) {
         bool gold = !strcmp(key, "A");
         float cy = y + (font_height(FS_SMALL) - ch) / 2;
         ui_button(x, cy, kw, ch, gold);
-        font_draw_center(x + kw / 2, cy + (ch - font_height(ks)) / 2, ks, gold ? C_TEXT_DARK : C_TEXT, key);
-        font_draw(x + kw + 6, y, FS_SMALL, C_TEXT_DIM, lab);
+        font_draw_center(x + kw / 2, cy + (ch - font_height(FS_KEY)) / 2, FS_KEY, gold ? C_TEXT_DARK : C_TEXT, key);
+        font_draw(x + kw + 7, y, FS_SMALL, C_TEXT_DIM, lab);
     }
-    return kw + 6 + font_width(lab, FS_SMALL);
+    return kw + 7 + font_width(lab, FS_SMALL);
 }
 
 float ui_hint(float x, float y, const char *hint) { return hint_draw(x, y, hint, (int)strlen(hint), true); }
@@ -258,7 +258,7 @@ void ui_title_bar(void) {
     font_draw(mx, y + (h - mh) / 2, FS_BIG, C_TEXT, mark);
     float sx = mx + font_width(mark, FS_BIG) + 14, lh = font_height(FS_SMALL);
     gfx_rect(sx - 7, y + 14, 1, h - 28, RGBA(255, 255, 255, 60));
-    font_draw(sx, y + h / 2 - lh - 1, FS_SMALL, C_TEXT_DIM, "Browser for GameCube");
+    font_draw(sx, y + h / 2 - lh - 1, FS_SMALL, C_TEXT_DIM, "Browser");
     font_draw(sx, y + h / 2 + 2, FS_SMALL, C_TEXT_DIM, "version " APP_VERSION);
 
     float rx = x + w - 17, ly1 = y + h / 2 - lh - 1, ly2 = y + h / 2 + 2;
@@ -289,7 +289,7 @@ void ui_title_bar(void) {
 
 float ui_side_pane(const char *heading) {
     ui_panel(SIDE_X, BODY_Y, SIDE_W, BODY_BOTTOM - BODY_Y);
-    float bx = SIDE_X + 8, by = BODY_Y + 8, bw = SIDE_W - 16, bh = 24;
+    float bx = SIDE_X + 8, by = BODY_Y + 8, bw = SIDE_W - 16, bh = 28;
     ui_desc_bar(bx, by, bw, bh);
     font_draw(bx + 8, by + (bh - font_height(FS_SMALL)) / 2, FS_SMALL, C_TEXT, heading);
     return by + bh + 12;
@@ -298,7 +298,7 @@ float ui_side_pane(const char *heading) {
 void ui_side_hints(const char *hints) {
     int n = 1;
     for (const char *p = hints; (p = strstr(p, "    ")); p += 4) n++;
-    const float pitch = 21;
+    const float pitch = 25;
     float y = BODY_BOTTOM - 12 - n * pitch;
     gfx_rect(SIDE_X + 12, y - 8, SIDE_W - 24, 1, RGBA(255, 255, 255, 40));
     for (const char *p = hints; *p; y += pitch) {
@@ -315,21 +315,25 @@ void ui_side_line(float *y, const char *label, const char *value, Color vc) {
     if (font_width(label, FS_SMALL) + font_width(value, FS_SMALL) + 10 <= w) {   /* both on one line */
         font_draw(x, *y, FS_SMALL, C_TEXT_FAINT, label);
         font_draw_right(x + w, *y, FS_SMALL, vc, value);
-        *y += font_height(FS_SMALL) + 8;
+        *y += font_height(FS_SMALL) + 6;
         return;
     }
     font_draw_clip(x, *y, FS_SMALL, C_TEXT_FAINT, label, w);
     *y += font_height(FS_SMALL) + 1;
     font_draw_clip(x, *y, FS_SMALL, vc, value, w);
-    *y += font_height(FS_SMALL) + 8;
+    *y += font_height(FS_SMALL) + 6;
 }
 
 void ui_desc(const char *line1, const char *line2) {
     ui_desc_bar(MAIN_X, DESC_Y, MAIN_W, DESC_H);
-    float lh = font_height(FS_SMALL), y = DESC_Y + (DESC_H - 2 * lh - 3) / 2;
-    if (!line2 || !*line2) y = DESC_Y + (DESC_H - lh) / 2;
-    if (line1) font_draw_clip(MAIN_X + 10, y, FS_SMALL, C_TEXT, line1, MAIN_W - 20);
-    if (line2) font_draw_clip(MAIN_X + 10, y + lh + 3, FS_SMALL, RGB(212, 212, 255), line2, MAIN_W - 20);
+    float lh = font_height(FS_SMALL), y = DESC_Y + (DESC_H - 2 * lh - 3) / 2, tw = MAIN_W - 20;
+    if (line1 && (!line2 || !*line2)) {     /* one line of text, wrapped onto two if it needs them */
+        int n = font_draw_wrapped(0, 0, FS_SMALL, C_TEXT, line1, tw, 2, false);
+        font_draw_wrapped(MAIN_X + 10, DESC_Y + (DESC_H - n * lh - (n - 1) * 2) / 2, FS_SMALL, C_TEXT, line1, tw, 2, true);
+        return;
+    }
+    if (line1) font_draw_clip(MAIN_X + 10, y, FS_SMALL, C_TEXT, line1, tw);
+    if (line2) font_draw_clip(MAIN_X + 10, y + lh + 3, FS_SMALL, RGB(212, 212, 255), line2, tw);
 }
 
 /* ---- lists ---- */
@@ -452,11 +456,11 @@ void ui_count_badge(float rx, float y, int count) {
     if (count <= 0) return;
     char s[8];
     snprintf(s, sizeof s, "%d", count > 99 ? 99 : count);
-    float w = font_width(s, FS_SMALL) + 10, h = 16;
+    float w = font_width(s, FS_KEY) + 10, h = 18;
     if (w < h) w = h;
     ui_outline(rx - w - 1, y - 1, w + 2, h + 2, h / 2 + 1, 1, RGB(40, 32, 4));
     gfx_round_rect_gradient(rx - w, y, w, h, h / 2, RGB(255, 244, 150), RGB(214, 182, 60));
-    font_draw_center(rx - w / 2, y + (h - font_height(FS_SMALL)) / 2, FS_SMALL, C_TEXT_DARK, s);
+    font_draw_center(rx - w / 2, y + (h - font_height(FS_KEY)) / 2, FS_KEY, C_TEXT_DARK, s);
 }
 
 /* ---- toasts ---- */
@@ -474,12 +478,12 @@ void ui_toast(const char *text, bool error) {
 void ui_toasts_update_draw(void) {
     char m[160]; bool err;
     while (store_take_message(m, sizeof m, &err)) ui_toast(m, err);
-    float y = DOCK_Y - 44;
+    float y = DOCK_Y - 48;
     for (int i = 0; i < TOASTS; i++) {
         if (toasts[i].ttl <= 0) continue;
         toasts[i].ttl--;
         if (toasts[i].ttl < 20 && (toasts[i].ttl / 3) % 2) continue;   /* blinks out */
-        float w = font_width(toasts[i].text, FS_SMALL) + 44, h = 28;
+        float w = font_width(toasts[i].text, FS_SMALL) + 44, h = 32;
         if (w > FRAME_W - 40) w = FRAME_W - 40;
         float x = (SCREEN_W - w) / 2;
         ui_panel(x, y, w, h);
@@ -514,13 +518,13 @@ int ui_confirm_update(u32 p) {
 void ui_confirm_draw(void) {
     if (!cf.active) return;
     gfx_rect(0, 0, SCREEN_W, SCREEN_H, RGBA(0, 0, 0, 150));
-    float w = 420, h = 172, x = (SCREEN_W - w) / 2, y = (SCREEN_H - h) / 2;
+    float w = 440, h = 196, x = (SCREEN_W - w) / 2, y = (SCREEN_H - h) / 2;
     ui_panel(x, y, w, h);
-    ui_desc_bar(x + 12, y + 12, w - 24, 28);
-    font_draw(x + 22, y + 12 + (28 - font_height(FS_BODY)) / 2, FS_BODY, C_TEXT, cf.title);
-    font_draw_wrapped(x + 22, y + 52, FS_BODY, C_TEXT_DIM, cf.text, w - 44, 3, true);
+    ui_desc_bar(x + 12, y + 12, w - 24, 32);
+    font_draw(x + 22, y + 12 + (32 - font_height(FS_BODY)) / 2, FS_BODY, C_TEXT, cf.title);
+    font_draw_wrapped(x + 22, y + 58, FS_BODY, C_TEXT_DIM, cf.text, w - 44, 3, true);
     /* the two answers, as glass buttons; the gold ring is on yes */
-    float bw = 150, bh = 30, by = y + h - bh - 16, gap = 24, bx = x + (w - 2 * bw - gap) / 2;
+    float bw = 160, bh = 34, by = y + h - bh - 16, gap = 24, bx = x + (w - 2 * bw - gap) / 2;
     char yes[40];
     snprintf(yes, sizeof yes, "A  %s", cf.yes);
     const char *labels[2] = { yes, "B  Cancel" };

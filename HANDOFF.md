@@ -10,7 +10,8 @@ homebrew from one or more sources, install, update, remove and start apps on
 the SD card without pulling the card, with the default sources and apps
 maintained through pull requests to a catalog repository. The look on `main` is
 the GameCube boot menu (a floating glass cube); on `swiss-ui` it is the Swiss
-"System" theme, both with the console's own IPL font.
+"System" theme. `main` draws text with the console's own IPL font; `swiss-ui`
+bundles Inter, baked at exact pixel sizes (see README.md, "The font").
 
 Controls on the cube menu (`main`) were one direction per section; the
 `swiss-ui` branch replaced them with a Swiss-style bar of sections (see "The
@@ -96,8 +97,12 @@ re-implemented here from scratch.
 - Checked with `make preview` only; the devkitPPC build was NOT run for this
   branch (Docker was not running): build it first and fix any warnings.
 - Preview fixes for macOS: `stub/gctypes.h` was empty, a `stub/malloc.h`,
-  `wait` renamed (clashes with libc), Pillow's basic layout engine in
-  `font_atlas.py`.
+  `wait` renamed (clashes with libc).
+- Text is Inter, not the IPL font: `tools/font/bake_font.py` bakes 13/15/18/22
+  px into `source/font_data.c` as IA4 textures, drawn 1:1 with GX_NEAR. Text is
+  about half again as large as before, the list shows 5 rows (was 6), the side
+  pane is wider and the dim text colours are brighter. The preview now reads
+  the same textures in their tiled GX layout (the stand-in font is gone).
 
 ## What has NOT been verified
 
@@ -105,10 +110,11 @@ Nothing has run on hardware or in an emulator (Dolphin is not installed on
 this Mac; it cannot emulate the SD card anyway, but would show the UI). In
 order of risk:
 
-1. GX rendering and the IPL font (`video.c`, `font.c`): first thing to look at
+1. GX rendering and the text (`video.c`, `font.c`): first thing to look at
    on the console. If the screen stays black, suspect `video_init`; if there
-   is no text, `SYS_InitFont` (returns 1 on success) or the sheet texture
-   setup. The glass cube draws text and shapes through a perspective
+   is no text or it is garbled, the IA4 texture setup in `font_init` (the
+   tile layout in `bake_font.py` is what the preview reads, not hardware). On
+   PAL (528-line EFB) the 1:1 drawing is stretched a little vertically. The glass cube draws text and shapes through a perspective
    projection (face decals): if those are missing or misplaced on hardware
    but the cube itself shows, look at `face_space` in `video.c`. Also check
    the frame rate on the Installed grid (18 small cubes).

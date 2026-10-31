@@ -175,9 +175,9 @@ static void section(int steps_right) {
 }
 
 int main(int argc, char **argv) {
-    if (argc < 2 || !soft_load_font(argv[1])) { fprintf(stderr, "usage: preview FONT.bin (from font_atlas.py)\n"); return 1; }
+    (void)argc; (void)argv;
     video_init();
-    if (!font_init()) { fprintf(stderr, "font_init failed\n"); return 1; }
+    font_init();
     make_card();
     screens_open(SCR_STORE);
 

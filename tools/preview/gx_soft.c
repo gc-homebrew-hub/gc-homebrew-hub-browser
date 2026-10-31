@@ -1,4 +1,4 @@
-/* gx_soft.c - just enough of GX, gu, VIDEO and the IPL font for the preview:
+/* gx_soft.c - just enough of GX, gu and VIDEO for the preview:
  * vertices go through the loaded position and projection matrices, triangles
  * are filled with perspective-correct colour and texture interpolation and
  * blended source-alpha over the frame. One 640x480 RGB frame, no depth. */
@@ -178,19 +178,35 @@ static int transform(const Vert *v, SV *o) {
     return 1;
 }
 
-static float sample(float s, float t) {
-    const GXTexObj *o = tex0;
-    if (!o || !o->img) return 1;
+/* A texel as intensity and alpha, read from the texture's real GX layout:
+ * IA4 (8x4 tiles, alpha in the high nibble) or I4 (8x8 tiles, two per byte;
+ * intensity is the alpha too). Other formats read as opaque white. */
+static void texel(const GXTexObj *o, int x, int y, float *in, float *al) {
+    x = x < 0 ? 0 : x >= o->w ? o->w - 1 : x;
+    y = y < 0 ? 0 : y >= o->h ? o->h - 1 : y;
     const u8 *img = o->img;
+    int tiles = (o->w + 7) / 8;
+    if (o->fmt == GX_TF_IA4) {
+        u8 b = img[((y / 4) * tiles + x / 8) * 32 + (y % 4) * 8 + x % 8];
+        *in = (b & 15) / 15.0f; *al = (b >> 4) / 15.0f;
+    } else if (o->fmt == GX_TF_I4) {
+        u8 b = img[((y / 8) * tiles + x / 8) * 32 + (y % 8) * 4 + (x % 8) / 2];
+        *in = *al = ((x & 1) ? b & 15 : b >> 4) / 15.0f;
+    } else *in = *al = 1;
+}
+
+static void sample(float s, float t, float *in, float *al) {
+    const GXTexObj *o = tex0;
+    *in = *al = 1;
+    if (!o || !o->img) return;
+    if (o->filter == GX_NEAR) { texel(o, (int)floorf(s * o->w), (int)floorf(t * o->h), in, al); return; }
     float x = s * o->w - 0.5f, y = t * o->h - 0.5f;
     int x0 = (int)floorf(x), y0 = (int)floorf(y);
-    float fx = x - x0, fy = y - y0;
-#define PX(xx, yy) (img[((yy) < 0 ? 0 : (yy) >= o->h ? o->h - 1 : (yy)) * o->w + \
-                         ((xx) < 0 ? 0 : (xx) >= o->w ? o->w - 1 : (xx))] / 255.0f)
-    if (o->filter == GX_NEAR) return PX((int)(s * o->w), (int)(t * o->h));
-    return (PX(x0, y0) * (1 - fx) + PX(x0 + 1, y0) * fx) * (1 - fy) +
-           (PX(x0, y0 + 1) * (1 - fx) + PX(x0 + 1, y0 + 1) * fx) * fy;
-#undef PX
+    float fx = x - x0, fy = y - y0, i[4], a[4];
+    texel(o, x0, y0, &i[0], &a[0]); texel(o, x0 + 1, y0, &i[1], &a[1]);
+    texel(o, x0, y0 + 1, &i[2], &a[2]); texel(o, x0 + 1, y0 + 1, &i[3], &a[3]);
+    *in = (i[0] * (1 - fx) + i[1] * fx) * (1 - fy) + (i[2] * (1 - fx) + i[3] * fx) * fy;
+    *al = (a[0] * (1 - fx) + a[1] * fx) * (1 - fy) + (a[2] * (1 - fx) + a[3] * fx) * fy;
 }
 
 static void tri(const SV *a, const SV *b, const SV *c) {
@@ -215,8 +231,9 @@ static void tri(const SV *a, const SV *b, const SV *c) {
             for (int i = 0; i < 6; i++) at[i] = (w0 * a->a[i] + w1 * b->a[i] + w2 * c->a[i]) / iw;
             float r = at[0], g = at[1], bl = at[2], al = at[3];
             if (textured) {
-                float in = sample(at[4], at[5]);
-                r *= in; g *= in; bl *= in; al *= in;
+                float in, ta;
+                sample(at[4], at[5], &in, &ta);
+                r *= in; g *= in; bl *= in; al *= ta;
             }
             if (al <= 0) continue;
             if (al > 1) al = 1;
@@ -241,52 +258,4 @@ void GX_End(void) {
     default: break;
     }
 #undef T
-}
-
-/* ---- the font: a sheet made by font_atlas.py from any TrueType font,
- * standing in for the console's ROM font ---- */
-
-static struct { int cw, ch, first, last, cols, sw, sh; u8 widths[256]; u8 *pix; } atlas;
-
-int soft_load_font(const char *path) {
-    FILE *f = fopen(path, "rb");
-    if (!f) return 0;
-    int hdr[7];
-    if (fread(hdr, sizeof hdr, 1, f) != 1) { fclose(f); return 0; }
-    atlas.cw = hdr[0]; atlas.ch = hdr[1]; atlas.first = hdr[2]; atlas.last = hdr[3];
-    atlas.cols = hdr[4]; atlas.sw = hdr[5]; atlas.sh = hdr[6];
-    atlas.pix = malloc((size_t)atlas.sw * atlas.sh);
-    int ok = fread(atlas.widths, 256, 1, f) == 1 && fread(atlas.pix, (size_t)atlas.sw * atlas.sh, 1, f) == 1;
-    fclose(f);
-    return ok;
-}
-
-static sys_fontheader *font_hdr;
-
-u32 SYS_GetFontEncoding(void) { return SYS_FONTENC_ANSI; }
-
-u32 SYS_InitFont(sys_fontheader *h) {
-    if (!atlas.pix) return 0;
-    size_t img = (sizeof *h + 31) & ~31u, size = (size_t)atlas.sw * atlas.sh;
-    if (img + size > SYS_FONTSIZE_ANSI) return 0;
-    memset(h, 0, sizeof *h);
-    h->first_char = atlas.first; h->last_char = atlas.last; h->inval_char = '?';
-    h->cell_width = atlas.cw; h->cell_height = atlas.ch;
-    h->sheet_width = atlas.sw; h->sheet_height = atlas.sh;
-    h->sheet_column = atlas.cols;
-    h->sheet_size = h->sheet_fullsize = size;
-    h->sheet_image = img;
-    memcpy((u8 *)h + img, atlas.pix, size);
-    font_hdr = h;
-    return 1;
-}
-
-s32 SYS_GetFontWidth(s32 c) { return atlas.widths[c & 255]; }
-
-void SYS_GetFontTexture(s32 c, void **image, s32 *xpos, s32 *ypos, s32 *width) {
-    int i = c - atlas.first;
-    *image = (u8 *)font_hdr + font_hdr->sheet_image;
-    *xpos = (i % atlas.cols) * atlas.cw;
-    *ypos = (i / atlas.cols) * atlas.ch;
-    *width = atlas.widths[c & 255];
 }

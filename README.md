@@ -6,7 +6,8 @@ remove and start apps on the SD card, without taking the card out of the
 console. It follows the look of the Swiss "System" theme
 ([Arial-Bold/swiss-gc-system-UI](https://github.com/Arial-Bold/swiss-gc-system-UI)):
 a dark TV-screen backdrop, teal-black framed panels, frosted list rows, grey
-glass buttons with a gold selection ring, and the console's own boot-menu font.
+glass buttons with a gold selection ring, and large, sharp text in
+[Inter](https://rsms.me/inter/) baked at the exact sizes it is drawn.
 
 Written from scratch in C on [libogc2](https://github.com/extremscorner/libogc2).
 Not related to any web browser.
@@ -61,8 +62,8 @@ B goes back to the list. L/R page through long lists, X reloads the catalogs.
 | ![Homebrew Hub](docs/screenshots/homebrew-hub.png) | ![App details](docs/screenshots/details.png) |
 | ![Installed](docs/screenshots/installed.png) | ![Sources](docs/screenshots/sources.png) |
 
-These are renders from `make preview` (below), with a stand-in font; on the
-console the text is the IPL font.
+These are renders from `make preview` (below), with the same font textures the
+console draws.
 
 Apps install to `sd:/apps/<folder>/`, the layout Swiss uses, so they also show
 up in Swiss. An app's own data folders at the root of the card (for example
@@ -119,17 +120,28 @@ file helpers) with the normal C compiler; no devkitPPC needed.
 `make preview` renders the screens to `tools/preview/out/*.png`, also on the
 host: the real menu and screen code runs against a small software version of
 GX (`tools/preview/gx_soft.c`), a made-up card and catalog, and a script of
-button presses. It needs Python 3 with Pillow and a TrueType font standing in
-for the console's ROM font (`FONT=/path/to/font.ttf`; DejaVu Sans Bold is
-used when installed). It has no depth buffer, culling or anti-aliasing, which
+button presses. It needs Python 3 with Pillow (to write the PNG files). The
+text comes from the program's own font textures, read in their GX format, so
+it looks as it does on the console. It has no depth buffer, culling or anti-aliasing, which
 the program does not use either, but it is not the console: check new
 drawing code on hardware.
+
+### The font
+
+The text is [Inter](https://rsms.me/inter/) (SIL Open Font License 1.1,
+`tools/font/OFL.txt`), baked by `tools/font/bake_font.py` into
+`source/font_data.c`: printable ASCII at 13, 15, 18 and 22 pixels, each size a
+GX texture in IA4 format (about 79 KB in all). Each glyph is drawn 1:1 at a
+whole-pixel position with no filtering, so nothing is scaled or blurred. The
+generated file is committed; after changing the sizes in the script, run
+`make font` (needs Python 3 with Pillow). `make package` puts the licence on
+the card as `font-license.txt`.
 
 ## Layout
 
 | Module | Role |
 |---|---|
-| `video.c`, `font.c` | GX setup, 2D primitives, text with the IPL font |
+| `video.c`, `font.c`, `font_data.c` | GX setup, 2D primitives, text (Inter, baked by `tools/font/bake_font.py`) |
 | `menu.c`, `screens.c`, `ui.c`, `osk.c` | the frame (title bar, bar of sections), the sections, the look (backdrop, panels, rows, buttons, gold ring, description bar, icons), keyboard |
 | `catalog.c`, `json.c` | sources, catalog parsing, the installed list, versions |
 | `store.c` | the worker thread: network start, catalog refresh, install, remove |
