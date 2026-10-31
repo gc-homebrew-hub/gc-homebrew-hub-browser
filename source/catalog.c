@@ -218,6 +218,7 @@ bool catalog_parse_index(const char *json, size_t len, int source, App *out, int
         str_field(json, t, k, "long", a->description, sizeof a->description);
         str_field(json, t, k, "homepage", a->homepage, sizeof a->homepage);
         str_field(json, t, k, "zip", a->url, sizeof a->url);
+        if (!*a->url) str_field(json, t, k, "archive", a->url, sizeof a->url);   /* zip or .tar.xz */
         if (!*a->url) { str_field(json, t, k, "dol", a->url, sizeof a->url); a->bare = *a->url != 0; }
         a->size = (unsigned long long)json_int(json, t, json_find(json, t, k, "zip_size"), 0);
         str_field(json, t, k, "sha256", a->sha256, sizeof a->sha256);

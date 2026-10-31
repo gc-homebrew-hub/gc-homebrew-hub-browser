@@ -70,7 +70,9 @@ jobs:
             done'
 
       - name: Host tests
-        run: make test
+        run: |
+          sudo apt-get install -y --no-install-recommends liblzma-dev
+          make test
 
       - uses: actions/upload-artifact@v4
         with:
