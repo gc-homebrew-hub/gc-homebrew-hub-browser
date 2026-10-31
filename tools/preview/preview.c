@@ -96,7 +96,7 @@ static void make_card(void) {
     catalog_set_card(true);
     catalog_init("sd:/apps/gc-homebrew-hub-browser");
     char err[96];
-    catalog_source_add("https://raw.githubusercontent.com/michaellunzer/gc-homebrew-hub/main/index.json", err, sizeof err);
+    catalog_source_add("https://raw.githubusercontent.com/gc-homebrew-hub/gc-homebrew-hub/main/index.json", err, sizeof err);
     catalog_source_add("http://192.168.1.20:8765/index.json", err, sizeof err);
     catalog_source_add("https://example.org/gc/index.json", err, sizeof err);
     Source *s = catalog_source(0);

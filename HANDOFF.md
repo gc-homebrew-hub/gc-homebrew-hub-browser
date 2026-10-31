@@ -22,8 +22,8 @@ confirming again installs it.
 
 | Repo | Where | Remote | Status |
 |---|---|---|---|
-| gc-homebrew-hub-browser (this one) | `~/Documents/GitHub/gc-homebrew-hub-browser` | private, `michaellunzer/gc-homebrew-hub-browser` | the program; pushing here is fine |
-| gc-homebrew-hub (the catalog, formerly cubebrowser-apps) | `~/Documents/GitHub/gc-homebrew-hub` | none yet | local only; the default source URL expects it at `michaellunzer/gc-homebrew-hub`; do not create or push it without being asked |
+| gc-homebrew-hub-browser (this one) | `~/Documents/GitHub/gc-homebrew-hub-browser` | private, `gc-homebrew-hub/gc-homebrew-hub-browser` | the program; pushing here is fine |
+| gc-homebrew-hub (the catalog, formerly cubebrowser-apps) | `~/Documents/GitHub/gc-homebrew-hub` | none yet | local only; the default source URL expects it at `gc-homebrew-hub/gc-homebrew-hub`; do not create or push it without being asked |
 | CubeBrowser (web browser) | `~/Documents/GitHub/Cubebrowser`, worktree branch `claude/cubebrowser-homebrew-apps-9f7d9c` | origin is upstream `Arial-Bold/Cubebrowser`, never pushed | contains the first, in-browser version of the store (`about:apps`). The owner decided the two should be separate and to leave that branch as it is for now. Never push, fork or open anything upstream from it. |
 
 History: the store was first built inside CubeBrowser (commits a5af82d,
@@ -135,7 +135,7 @@ order of risk:
    prints the LAN address). The catalog has CubeBrowser, Flashcube (zip with a
    root data folder) and GC-MP3 (bare .dol release).
 3. The default source list URL (`settings.ini` key `sources_url`, default in
-   `settings.c`) points at `raw.githubusercontent.com/michaellunzer/gc-homebrew-hub`,
+   `settings.c`) points at `raw.githubusercontent.com/gc-homebrew-hub/gc-homebrew-hub`,
    which does not exist yet, so expect "Source list not loaded".
    Add the LAN source on the console: Sources, X, type
    `http://<mac-ip>:8765/index.json`.
@@ -147,7 +147,7 @@ order of risk:
 ## Next steps (suggested order)
 
 1. Hardware test and fix what it finds.
-2. Publish the catalog repo as `michaellunzer/gc-homebrew-hub` (the default
+2. Publish the catalog repo as `gc-homebrew-hub/gc-homebrew-hub` (the default
    source URL in `settings.c` already expects that; raw.githubusercontent.com
    needs the repo to be public, or the URL must point at a server you run).
 3. Phase 2 ideas from the original plan: app icons in the catalog (JSON
