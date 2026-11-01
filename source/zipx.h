@@ -1,4 +1,4 @@
-/* zipx.h - unpacks a downloaded archive into a folder: a zip (libzip + zlib)
+/* zipx.h - unpacks a downloaded archive into a folder: a zip (zipx.c, on zlib)
  * or a .tar.xz (tarxz.c), told apart by their first bytes. */
 #pragma once
 #include <stdbool.h>

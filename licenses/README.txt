@@ -17,16 +17,10 @@ lwIP (libbba, part    BSD-3-Clause                           lwip.txt
   of libogc2)         https://savannah.nongnu.org/projects/lwip/
 libfat                BSD-3-Clause                           libfat.txt
                       https://github.com/extremscorner/libfat
-libzip                BSD-3-Clause                           libzip.txt
-                      https://libzip.org
 zlib                  zlib License                           zlib.txt
                       https://zlib.net
-bzip2 (libbz2)        bzip2 licence (BSD-style)              bzip2.txt
-                      https://sourceware.org/bzip2/
 liblzma (XZ Utils)    0BSD (public domain before 5.6)        liblzma.txt
                       https://tukaani.org/xz/
-Zstandard (libzstd)   BSD-3-Clause (dual with GPL-2.0)       zstd.txt
-                      https://github.com/facebook/zstd
 Inter (the text)      SIL Open Font License 1.1              inter-ofl.txt
                       (tools/font/OFL.txt in the source)
                       https://rsms.me/inter/

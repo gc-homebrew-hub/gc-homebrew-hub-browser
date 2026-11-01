@@ -37,8 +37,8 @@ CXXFLAGS	=	$(CFLAGS)
 ASFLAGS	=	-g $(MACHDEP)
 LDFLAGS	=	-g $(MACHDEP) -Wl,--gc-sections -Wl,-Map,$(notdir $@).map
 
-# libzip pulls in zlib, bzip2, lzma and zstd; libfat and libbba go before libogc
-LIBS	:=	-lzip -lz -lbz2 -llzma -lzstd -lfat -lbba -logc -lm
+# zlib for zips (zipx.c), liblzma for .tar.xz; libfat and libbba go before libogc
+LIBS	:=	-lz -llzma -lfat -lbba -logc -lm
 LIBDIRS	:=	$(PORTLIBS)
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))

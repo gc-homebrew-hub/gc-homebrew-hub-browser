@@ -178,7 +178,7 @@ the card as `licenses/inter-ofl.txt`.
 | `catalog.c`, `json.c` | sources, catalog parsing, the installed list, versions |
 | `store.c` | the worker thread: network start, catalog refresh, install, remove |
 | `net.c` | DHCP, DNS, SNTP, HTTP/HTTPS client (mbedTLS) |
-| `zipx.c`, `tarxz.c`, `digest.c`, `fsutil.c` | unzip (libzip), .tar.xz (liblzma), SHA-256, file helpers |
+| `zipx.c`, `tarxz.c`, `digest.c`, `fsutil.c` | unzip (its own reader on zlib), .tar.xz (liblzma), SHA-256, file helpers |
 | `log.c`, `memstat.c` | `log.txt` on the card, free memory |
 | `dol.c`, `dol_stub.S` | starting another program |
 
