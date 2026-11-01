@@ -729,8 +729,8 @@ static int conn_read(Conn *c, unsigned char *buf, size_t len, NetReq *r)
                 n == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET) {
                 continue;
             }
-            /* CONN_EOF is a TCP close without close_notify; many servers do
-             * that after Connection: close, so it counts as end of stream. */
+            /* CONN_EOF is a TCP close without close_notify; many servers
+             * close that way, so it counts as end of stream. */
             if (n == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY || n == MBEDTLS_ERR_SSL_CONN_EOF) {
                 return 0;
             }
@@ -1058,16 +1058,20 @@ static bool is_redirect(int status)
 static bool fetch_head(Conn *c, const Url *u, unsigned char *buf, Head *h,
                        size_t *body_off, size_t *got, NetReq *r)
 {
-    /* buf is free until the request has gone out, so format it there. */
+    /* buf is free until the request has gone out, so format it there. No
+     * "Connection: close": the body ends at its length (or last chunk) and we
+     * close the connection ourselves. With close, the server shuts its side
+     * straight after the body, and Dolphin's emulated adapter then often
+     * ends the connection before passing the rest of the body on. */
     char *req = (char *) buf;
     bool default_port = u->port == (u->https ? 443 : 80);
     int n = default_port
         ? snprintf(req, READ_BUF_SIZE,
                    "GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: " USER_AGENT "\r\n"
-                   "Accept: */*\r\nConnection: close\r\n\r\n", u->path, u->host)
+                   "Accept: */*\r\n\r\n", u->path, u->host)
         : snprintf(req, READ_BUF_SIZE,
                    "GET %s HTTP/1.1\r\nHost: %s:%u\r\nUser-Agent: " USER_AGENT "\r\n"
-                   "Accept: */*\r\nConnection: close\r\n\r\n", u->path, u->host, u->port);
+                   "Accept: */*\r\n\r\n", u->path, u->host, u->port);
     if (n <= 0 || (size_t) n >= READ_BUF_SIZE) {
         req_err(r, "URL too long");
         return false;

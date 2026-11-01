@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 typedef enum { JOB_NONE, JOB_START, JOB_SOURCES, JOB_INDEXES, JOB_INSTALL, JOB_REMOVE } Job;
 
@@ -78,16 +79,35 @@ bool store_take_message(char *out, size_t cap, bool *error) {
 
 /* ---- worker side ---- */
 
+/* A dropped connection is worth another try (Dolphin's emulated adapter cuts
+ * some short, and real networks drop some too); an answer such as 404 is not.
+ * Status 0: no answer at all; 2xx: the body was cut short; 5xx: the server's
+ * trouble, often brief. */
+static bool worth_retry(const NetReq *r) {
+    return !cancel_flag && (r->status == 0 || (r->status >= 200 && r->status < 300) || r->status >= 500);
+}
+
+#define FETCH_TRIES 3
+
 static bool fetch_text(const char *url, size_t max, char **out, size_t *len, char *err, size_t errlen) {
-    memset(&req, 0, sizeof req);
-    req.url = url; req.max_mem = max; req.cancel = &cancel_flag;
-    downloading = 1;
-    bool ok = net_get(&req);
-    downloading = 0;
-    if (!ok) { snprintf(err, errlen, "%s", req.err); free(req.mem); req.mem = NULL; return false; }
-    *out = req.mem; *len = req.len;
-    req.mem = NULL;
-    return true;
+    for (int t = 1; ; t++) {
+        memset(&req, 0, sizeof req);
+        req.url = url; req.max_mem = max; req.cancel = &cancel_flag;
+        downloading = 1;
+        bool ok = net_get(&req);
+        downloading = 0;
+        if (ok) {
+            *out = req.mem; *len = req.len;
+            req.mem = NULL;
+            return true;
+        }
+        free(req.mem); req.mem = NULL;
+        if (t == FETCH_TRIES || !worth_retry(&req)) {
+            snprintf(err, errlen, "%s", req.err);
+            return false;
+        }
+        usleep(t * 1000000);                  /* 1 s, then 2 s */
+    }
 }
 
 static void job_start(void) {
@@ -447,19 +467,23 @@ void store_poll(void) {
     }
     case JOB_INDEXES:
         if (done_ok) {
-            int failed = 0;
+            int failed = 0, first = -1;
             for (int i = 0; i < sres_n && i < catalog_source_count(); i++) {
                 Source *s = catalog_source(i);
                 s->napps = sres[i].napps;
                 snprintf(s->status, sizeof s->status, "%s", sres[i].status);
                 if (sres[i].name[0] && !s->builtin) snprintf(s->name, sizeof s->name, "%s", sres[i].name);
-                if (s->enabled && sres[i].napps < 0) failed++;
+                if (s->enabled && sres[i].napps < 0 && !failed++) first = i;
             }
             catalog_replace_apps(new_apps, new_napps);
             new_apps = NULL;
             char m[120];
             int up = catalog_update_count();
-            if (failed) snprintf(m, sizeof m, "%d source%s could not be loaded", failed, failed == 1 ? "" : "s");
+            if (failed == 1) {               /* say why; the status reads "Failed: <reason>" */
+                const char *why = catalog_source(first)->status;
+                if (!strncmp(why, "Failed: ", 8)) why += 8;
+                snprintf(m, sizeof m, "%.36s not loaded: %.66s", catalog_source(first)->name, why);
+            } else if (failed) snprintf(m, sizeof m, "%d sources could not be loaded", failed);
             else if (up) snprintf(m, sizeof m, "%d update%s available", up, up == 1 ? "" : "s");
             else snprintf(m, sizeof m, "%d apps listed", catalog_app_count());
             push_msg(m, failed != 0);
