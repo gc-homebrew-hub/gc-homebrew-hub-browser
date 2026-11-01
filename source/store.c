@@ -239,6 +239,9 @@ static void job_install(void) {
     snprintf(stage, sizeof stage, "%s/stage/%.31s", data, a->slug);
     snprintf(dest, sizeof dest, APPS_DIR "/%.47s", a->folder);
     done_ok = 0;
+    /* this program's own folder holds the download, the stage and the user's
+     * data, so it is updated file by file rather than swapped whole */
+    bool self = catalog_is_self(a->folder);
     log_printf("Install %s %s (now %s) from %s%s", a->slug, a->version, *job_old_version ? job_old_version : "none",
                a->url, job_replace_root ? ", replacing root files" : "");
 
@@ -315,7 +318,7 @@ static void job_install(void) {
     }
     set_step("Installing");
     /* files the app keeps across updates */
-    for (int i = 0; i < a->nkeep; i++) {
+    for (int i = 0; !self && i < a->nkeep; i++) {
         char from[300], to[300];
         if (fs_join(from, sizeof from, dest, a->keep[i]) && fs_join(to, sizeof to, appdir, a->keep[i]) && fs_exists(from)) {
             char *slash = strrchr(to, '/');
@@ -363,6 +366,19 @@ static void job_install(void) {
     for (char *c = label; *c; c++)
         if (!(isalnum((unsigned char)*c) || *c == '.' || *c == '-' || *c == '_')) *c = '_';
     fs_mkdirs(APPS_DIR);
+    if (self) {
+        bool moved = fs_move_over(appdir, dest);
+        fs_remove_tree(stage);
+        if (!moved) {
+            log_printf("Moving %s over %s failed", appdir, dest);
+            snprintf(done_err, sizeof done_err, "Could not write every file of the new version");
+            return;
+        }
+        snprintf(done_note, sizeof done_note, "Start it again to use version %.23s", a->version);
+        done_note_error = 0;
+        done_ok = 1;
+        return;
+    }
     if (!replace_dir(dest, appdir, err, sizeof err)) {
         snprintf(done_err, sizeof done_err, "%s", err);
         fs_remove_tree(stage);
@@ -599,7 +615,7 @@ int store_root_targets(int i, char *list, size_t cap) {
 
 void store_request_remove(int i) {
     Installed *in = catalog_installed(i);
-    if (!in || store_busy() || !catalog_have_card()) return;
+    if (!in || store_busy() || !catalog_have_card() || catalog_is_self(in->folder)) return;
     job_inst = *in;
     submit(JOB_REMOVE);
 }

@@ -124,6 +124,25 @@ static void test_catalog(void) {
     CHECK(catalog_installed_find("demo") >= 0 && catalog_installed_count() == 3, "installed reloaded: %d", catalog_installed_count());
     catalog_installed_remove("demo");
     CHECK(catalog_installed_find("demo") < 0, "removed");
+
+    /* the running program is listed at its own version, whatever was saved */
+    catalog_set_self("0.1");
+    int me = catalog_installed_find(SELF_SLUG);
+    CHECK(me >= 0 && catalog_installed(me)->managed && !strcmp(catalog_installed(me)->version, "0.1"), "self listed");
+    catalog_installed_set(SELF_SLUG, "GC Homebrew Hub Browser", "0.2", SELF_FOLDER, "boot.dol");
+    catalog_installed_save();
+    catalog_init("data");
+    me = catalog_installed_find(SELF_SLUG);
+    CHECK(me >= 0 && !strcmp(catalog_installed(me)->version, "0.1"), "self version from the program");
+    CHECK(catalog_is_self("GC-Homebrew-Hub-Browser") && !catalog_is_self("demo"), "is_self");
+}
+
+static bool has(const char *path, const char *want) {
+    char *d; size_t n;
+    if (!fs_read_file(path, &d, &n, 1 << 20)) return false;
+    bool ok = n == strlen(want) && !memcmp(d, want, n);
+    free(d);
+    return ok;
 }
 
 static void test_fs(void) {
@@ -138,6 +157,16 @@ static void test_fs(void) {
     char *t; size_t l;
     CHECK(fs_read_file("sd:/copy/f.txt", &t, &l, 100) && l == 3 && !strcmp(t, "abc"), "read"); free(t);
     CHECK(!fs_read_file("sd:/copy/f.txt", &t, &l, 2), "read max");
+    /* an update of this program's own folder: new files in, data left alone */
+    fs_mkdirs("sd:/self/stage/new/sub");
+    fs_write_file("sd:/self/boot.dol", "old", 3);
+    fs_write_file("sd:/self/settings.ini", "mine", 4);
+    fs_write_file("sd:/self/stage/new/boot.dol", "newer", 5);
+    fs_write_file("sd:/self/stage/new/sub/x.txt", "x", 1);
+    CHECK(fs_move_over("sd:/self/stage/new", "sd:/self"), "move over");
+    CHECK(has("sd:/self/boot.dol", "newer") && has("sd:/self/sub/x.txt", "x") && has("sd:/self/settings.ini", "mine"), "moved over, data kept");
+    CHECK(!fs_exists("sd:/self/boot.dol.new") && !fs_exists("sd:/self/stage/new/boot.dol"), "no leftovers");
+    fs_remove_tree("sd:/self");
     char j[16];
     CHECK(fs_join(j, sizeof j, "sd:/a/", "b") && !strcmp(j, "sd:/a/b") && !fs_join(j, sizeof j, "sd:/aaaaaaaaaa", "bbbbbbbb"), "join");
 }
@@ -179,14 +208,6 @@ static bool write_xz(const char *name, const Buf *tar, uint32_t dict) {
     bool ok = lzma_stream_buffer_encode(f, LZMA_CHECK_CRC64, NULL, tar->p, tar->n, out, &n, cap) == LZMA_OK &&
               fs_write_file(name, out, n);
     free(out);
-    return ok;
-}
-
-static bool has(const char *path, const char *want) {
-    char *d; size_t n;
-    if (!fs_read_file(path, &d, &n, 1 << 20)) return false;
-    bool ok = n == strlen(want) && !memcmp(d, want, n);
-    free(d);
     return ok;
 }
 

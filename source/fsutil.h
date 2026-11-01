@@ -14,6 +14,10 @@ bool fs_copy_file(const char *src, const char *dst);
 /* Copies a tree; existing files at the destination are left alone when
  * `keep_existing` is set. */
 bool fs_copy_tree(const char *src, const char *dst, bool keep_existing);
+/* Moves every file of src over the one of the same path in dst, leaving the
+ * other files of dst alone. Each file goes in by a rename beside it, so none
+ * is ever half-written; a file that cannot be renamed across is copied. */
+bool fs_move_over(const char *src, const char *dst);
 bool fs_free_space(const char *path, unsigned long long *bytes);
 /* Whether an archive path is wanted: inside (or equal to) one of the paths
  * in the NULL-terminated list; everything is wanted when the list is NULL or

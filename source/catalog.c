@@ -23,6 +23,13 @@ static void scopy(char *dst, size_t cap, const char *src) {
 
 const char *catalog_datadir(void) { return datadir; }
 
+static char self_version[24];
+static void add_self(void) {
+    if (*self_version) catalog_installed_set(SELF_SLUG, "GC Homebrew Hub Browser", self_version, SELF_FOLDER, "boot.dol");
+}
+void catalog_set_self(const char *version) { scopy(self_version, sizeof self_version, version); add_self(); }
+bool catalog_is_self(const char *folder) { return !strcasecmp(folder, SELF_FOLDER); }
+
 static bool have_card;
 void catalog_set_card(bool present) { have_card = present; }
 bool catalog_have_card(void) { return have_card; }
@@ -415,7 +422,7 @@ void catalog_scan_card(void) {
         char dir[280];
         snprintf(dir, sizeof dir, APPS_DIR "/%s", e->d_name);
         if (!fs_is_dir(dir)) continue;
-        if (!strcasecmp(e->d_name, "gc-homebrew-hub-browser")) continue;
+        if (catalog_is_self(e->d_name)) continue;
         bool known = false;
         for (int i = 0; i < ninst; i++) if (!strcasecmp(inst[i].folder, e->d_name)) known = true;
         if (known) continue;
@@ -483,6 +490,7 @@ void catalog_init(const char *dir) {
     fs_join(sub, sizeof sub, datadir, "cache"); fs_mkdirs(sub);
     sources_load();
     installed_load();
+    add_self();          /* the version running, whatever installed.txt says */
     catalog_scan_card();
     /* cached indexes make the lists usable before (or without) the network */
     App *arr = malloc(sizeof(App) * MAX_APPS);

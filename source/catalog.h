@@ -56,7 +56,15 @@ typedef struct {
     int  app;                        /* catalog index or -1 */
 } Installed;
 
+/* The running program's own folder under sd:/apps, which also holds its data */
+#define SELF_SLUG   "gc-homebrew-hub-browser"
+#define SELF_FOLDER "gc-homebrew-hub-browser"
+
 void catalog_init(const char *datadir);
+/* Lists the running program as installed at this version, so the catalog
+ * can offer its updates; kept across catalog_init. */
+void catalog_set_self(const char *version);
+bool catalog_is_self(const char *folder);
 const char *catalog_datadir(void);
 /* Whether the SD card is mounted. Without one (or in Dolphin, which has no
  * GameCube SD adapter) the catalogs can be browsed but nothing installed. */

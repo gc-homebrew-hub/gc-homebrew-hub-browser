@@ -55,6 +55,11 @@ in the indigo bar under it.
 | **Settings** | load the catalogs at start, certificate checking, what leaving does, and a Leave entry. |
 | **Exit** | reboots the GameCube or returns to the loader (Settings picks which), after asking. |
 
+The browser is in the catalog too, so it updates itself the same way. Its
+new files go over the old ones in `sd:/apps/gc-homebrew-hub-browser`, and its
+settings, sources and log stay. Start it again afterwards to run the new
+version.
+
 The program opens on the Hub. B moves down into the bar of sections (B again
 or Up moves back), Left/Right pick a section and A opens it; on a details page
 B goes back to the list. L/R page through long lists, X reloads the catalogs.
