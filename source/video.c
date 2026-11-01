@@ -116,9 +116,13 @@ void video_frame_end(void) {
     frames++;
 }
 
+static u8 opacity = 255;
+void gfx_set_opacity(float a) { opacity = a <= 0 ? 0 : a >= 1 ? 255 : (u8)(a * 255 + 0.5f); }
+static inline u8 fade(u8 a) { return opacity == 255 ? a : (u8)((a * opacity + 127) / 255); }
+
 static inline void vtx(float x, float y, Color c) {
     GX_Position3f32(x, y, 0);
-    GX_Color4u8(c.r, c.g, c.b, c.a);
+    GX_Color4u8(c.r, c.g, c.b, fade(c.a));
 }
 
 void gfx_rect(float x, float y, float w, float h, Color c) {
@@ -220,6 +224,7 @@ void gfx_line(float x0, float y0, float x1, float y1, float width, Color c) {
 
 void gfx_tex_quad(GXTexObj *tex, float tw, float th, float x, float y, float w, float h,
                   float s0, float t0, float s1, float t1, Color tint) {
+    tint.a = fade(tint.a);
     textured(tex);
     GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
     GX_Position3f32(x, y, 0);         GX_Color4u8(tint.r, tint.g, tint.b, tint.a); GX_TexCoord2f32(s0 / tw, t0 / th);

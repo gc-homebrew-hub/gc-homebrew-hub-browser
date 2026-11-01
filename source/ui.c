@@ -472,6 +472,7 @@ void ui_count_badge(float rx, float y, int count) {
 /* ---- toasts ---- */
 
 #define TOASTS 3
+#define TOAST_FADE 20
 static struct { char text[160]; bool error; int ttl; } toasts[TOASTS];
 
 void ui_toast(const char *text, bool error) {
@@ -489,7 +490,8 @@ void ui_toasts_update_draw(void) {
     for (int i = 0; i < TOASTS; i++) {
         if (toasts[i].ttl <= 0) continue;
         toasts[i].ttl--;
-        if (toasts[i].ttl < 20 && (toasts[i].ttl / 3) % 2) continue;   /* blinks out */
+        /* fades out over its last third of a second */
+        gfx_set_opacity(toasts[i].ttl < TOAST_FADE ? (float)toasts[i].ttl / TOAST_FADE : 1);
         float w = font_width(toasts[i].text, FS_SMALL) + 44, h = 32;
         if (w > FRAME_W - 40) w = FRAME_W - 40;
         float x = (SCREEN_W - w) / 2;
@@ -500,6 +502,7 @@ void ui_toasts_update_draw(void) {
                        toasts[i].text, w - 38);
         y -= h + 12;
     }
+    gfx_set_opacity(1);
 }
 
 /* ---- confirm ---- */

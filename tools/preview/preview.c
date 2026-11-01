@@ -209,6 +209,10 @@ int main(int argc, char **argv) {
     press(BTN_A); idle(4);                     shot("03-details");
     busy = true; step_text = "Downloading"; job = "Flashcube"; progress = 0.62f;
     idle(2);                                   shot("04-details-installing");
+    step_text = "Checking the download"; progress = 0.3f;
+    idle(2);                                   shot("04b-details-checking");
+    step_text = "Updating the boot files"; job = "GC Homebrew Hub Browser"; progress = -1;
+    idle(2);                                   shot("04c-details-boot-files");
     busy = false;
     press(BTN_B); press(BTN_B); press(BTN_RIGHT); idle(30); shot("05-section-bar");
     press(BTN_A); idle(4);                     shot("06-installed");
@@ -222,8 +226,9 @@ int main(int argc, char **argv) {
     ui_toast("Flashcube 2.1 installed", false);
     ui_toast("Mac on the LAN: could not connect (timed out)", true);
     idle(10);                                  shot("12-toasts");
+    idle(180);                                 shot("12b-toast-fading");   /* the first, half gone */
     /* browsing without a card (as in Dolphin) */
-    idle(320); catalog_set_card(false);
+    idle(140); catalog_set_card(false);
     section(-2); idle(4);                      shot("13-no-card");
     /* installing Swiss when its boot files are on the card */
     catalog_set_card(true);
