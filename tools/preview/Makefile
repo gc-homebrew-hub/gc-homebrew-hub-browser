@@ -5,7 +5,7 @@
 CC      ?= cc
 CFLAGS  := -std=gnu11 -O2 -g -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Istub -I. -I../../source \
            -DAPP_VERSION='"preview"'
-APP     := $(addprefix ../../source/,video.c font.c font_data.c ui.c menu.c screens.c osk.c catalog.c json.c fsutil.c settings.c)
+APP     := $(addprefix ../../source/,video.c font.c font_data.c ui.c menu.c screens.c osk.c catalog.c json.c fsutil.c settings.c log.c memstat.c)
 SRC     := $(APP) gx_soft.c preview.c
 BIN     := build/preview
 

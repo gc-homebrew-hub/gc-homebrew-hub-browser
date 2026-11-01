@@ -4,6 +4,8 @@
 #include "digest.h"
 #include "fsutil.h"
 #include "json.h"
+#include "log.h"
+#include "memstat.h"
 #include "tarxz.h"
 #include <lzma.h>
 #include <stdio.h>
@@ -328,6 +330,31 @@ static void test_zip(void) {
 }
 #endif
 
+static void test_log(void) {
+    fs_mkdirs("logt");
+    log_printf("before open: dropped");
+    remove("logt/log.txt"); remove("logt/log.old.txt");
+    log_open("logt/log.txt");
+    log_printf("first %d", 1);
+    log_printf("two\nlines");
+    char *text; size_t len;
+    CHECK(fs_read_file("logt/log.txt", &text, &len, 4096), "log written");
+    int lines = 0;
+    for (size_t i = 0; i < len; i++) lines += text[i] == '\n';
+    CHECK(lines == 2, "one line per call, got %d", lines);
+    CHECK(strstr(text, "] first 1\n") && strstr(text, "] two lines\n"), "text: %s", text);
+    CHECK(!strstr(text, "dropped"), "nothing before log_open");
+    free(text);
+    /* a full log becomes log.old.txt, at open and while writing */
+    char big[300];
+    memset(big, 'x', sizeof big - 1); big[sizeof big - 1] = 0;
+    for (int i = 0; i < LOG_MAX_BYTES / 200; i++) log_printf("%s", big);
+    CHECK(fs_exists("logt/log.old.txt"), "rotated while writing");
+    CHECK(fs_file_size("logt/log.txt") < LOG_MAX_BYTES, "log stays under the cap");
+    CHECK(fs_file_size("logt/log.old.txt") >= LOG_MAX_BYTES, "old log holds the full one");
+    CHECK(mem_largest_free() > 0 && mem_largest_free() <= mem_free_total(), "memory figures");
+}
+
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     fs_mkdirs("sd:");   /* the host stand-in for the card root */
@@ -337,6 +364,7 @@ int main(void) {
     test_catalog();
     test_tarxz();
     test_root_replace();
+    test_log();
 #ifdef HAVE_LIBZIP
     test_zip();
 #else
