@@ -142,7 +142,13 @@ log file and starting an app. Still open, in order of risk:
 4. The DOL stub and `SYS_ResetSystem(SYS_SHUTDOWN)` sequence (`dol.c`).
 5. libfat `rename` of directories during the folder swap.
 6. Memory while unpacking Swiss's .tar.xz (8.5 MB for the xz dictionary).
-   The decoder's limit is now the largest free block less 1 MB, so too
+   Measured in Dolphin (2026-10-31, commit 4557c4a, read over Dolphin's GDB
+   stub from `__sysarena1lo/hi` and dlmalloc's top chunk): the largest block
+   malloc could hand out was 18.3 MB at start and 17.1 MB once the catalog
+   (9 apps) had loaded, and stayed there. The image ends at 0x802dd800
+   (2.9 MB). Dolphin had no card, so `cacert.pem` (about 220 KB, parsed by
+   mbedTLS) was not loaded; on the console expect somewhat less, still about
+   twice what Swiss needs. The decoder's limit is now the largest free block less 1 MB, so too
    little memory fails with "Unpacking needs N MB of memory; only M MB can
    be spared" rather than a crash; the About screen shows free memory and
    the log records it before each unpack.
