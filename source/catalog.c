@@ -277,9 +277,12 @@ bool catalog_parse_index(const char *json, size_t len, int source, App *out, int
                     strcasecmp(r->to, "apps") && name_ok(r->archive) && strcasecmp(r->archive, "apps"))
                     a->nreplace++;
             }
-        /* reject entries that could not be installed safely */
+        /* reject entries that could not be installed safely; this program's
+         * folder is only for its own entry, which brings nothing else */
+        bool self = !strcmp(a->slug, SELF_SLUG);
         bool ok = slug_ok(a->slug) && url_ok(a->url) && name_ok(a->folder) && fs_safe_relative(a->binary) &&
-                  (!*a->root || fs_safe_relative(a->root)) && strcasecmp(a->folder, "gc-homebrew-hub-browser") != 0;
+                  (!*a->root || fs_safe_relative(a->root)) && self == catalog_is_self(a->folder);
+        if (self) a->nkeep = a->nto_root = a->nreplace = 0;
         if (ok && a->bare) {
             size_t bl = strlen(a->binary);
             ok = bl > 4 && !strcasecmp(a->binary + bl - 4, ".dol") && !strchr(a->binary, '/');

@@ -135,6 +135,17 @@ static void test_catalog(void) {
     me = catalog_installed_find(SELF_SLUG);
     CHECK(me >= 0 && !strcmp(catalog_installed(me)->version, "0.1"), "self version from the program");
     CHECK(catalog_is_self("GC-Homebrew-Hub-Browser") && !catalog_is_self("demo"), "is_self");
+
+    /* its own entry may use its folder, and only that one */
+    const char *self_json = "{\"format\":1,\"apps\":["
+        "{\"slug\":\"gc-homebrew-hub-browser\",\"version\":\"0.2\",\"zip\":\"http://x/b.zip\",\"root\":\"apps/gc-homebrew-hub-browser\","
+        "\"copy_to_root\":[\"x\"],\"replace_at_root\":[{\"file\":\"boot.dol\",\"to\":\"ipl.dol\"}]},"
+        "{\"slug\":\"gc-homebrew-hub-browser\",\"zip\":\"http://x/c.zip\",\"folder\":\"elsewhere\"}]}";
+    App *sa = malloc(sizeof(App) * 4);
+    int sn = 0;
+    CHECK(catalog_parse_index(self_json, strlen(self_json), 0, sa, &sn, 4, NULL, 0, err, sizeof err), "parse self: %s", err);
+    CHECK(sn == 1 && catalog_is_self(sa[0].folder) && !sa[0].nto_root && !sa[0].nreplace, "self entry kept, own folder only: %d", sn);
+    free(sa);
 }
 
 static bool has(const char *path, const char *want) {
