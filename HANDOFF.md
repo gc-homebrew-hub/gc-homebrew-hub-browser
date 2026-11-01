@@ -1,6 +1,6 @@
 # Handoff: GC Homebrew Hub Browser
 
-Last updated 2026-10-25 (names chosen: gc-homebrew-hub-catalog = the catalog repository, whose source is shown on the console as "GC Homebrew Hub"; GC Homebrew Hub Browser = the program). Read this before continuing the work; README.md
+Last updated 2026-10-31 (names chosen: gc-homebrew-hub-catalog = the catalog repository, whose source is shown on the console as "GC Homebrew Hub"; GC Homebrew Hub Browser = the program). Read this before continuing the work; README.md
 covers what the program is and how to build it.
 
 ## The goal
@@ -113,9 +113,14 @@ re-implemented here from scratch.
 
 ## What has NOT been verified
 
-Nothing has run on hardware or in an emulator (Dolphin is not installed on
-this Mac; it cannot emulate the SD card anyway, but would show the UI). In
-order of risk:
+Nothing has run on hardware yet. In Dolphin (on the Mac, and in CI, which
+boots every `main` build and saves screenshots to the `dolphin-screenshots`
+branch) the program boots, draws the screens and text and the cube, brings
+up the HLE network adapter, completes TLS to GitHub and loads the catalog
+(9 apps). Dolphin has no SD card for a GameCube, so nothing that reads or
+writes the card has run outside the host tests: installing, updating,
+removing, the folder renames, `keep`, `copy_to_root`, `replace_at_root`, the
+log file and starting an app. Still open, in order of risk:
 
 1. GX rendering and the text (`video.c`, `font.c`): first thing to look at
    on the console. If the screen stays black, suspect `video_init`; if there
@@ -136,6 +141,21 @@ order of risk:
 3. DNS: resolver asks the gateway, then 1.1.1.1 and 8.8.8.8 over UDP 53.
 4. The DOL stub and `SYS_ResetSystem(SYS_SHUTDOWN)` sequence (`dol.c`).
 5. libfat `rename` of directories during the folder swap.
+6. Memory while unpacking Swiss's .tar.xz (8.5 MB for the xz dictionary).
+   The decoder's limit is now the largest free block less 1 MB, so too
+   little memory fails with "Unpacking needs N MB of memory; only M MB can
+   be spared" rather than a crash; the About screen shows free memory and
+   the log records it before each unpack.
+7. Real Broadband Adapter speed, SNTP and the console clock, PAL video, and
+   the frame rate on the Installed grid.
+
+When something goes wrong on the console, read
+`sd:/apps/gc-homebrew-hub-browser/log.txt` (`log.c`): every toast, each
+catalog fetch (address, status, bytes or error, each retry), the network and
+clock at start, each install step with the download's status and size, free
+memory before unpacking, failed renames with errno, and each app started.
+Lines start with seconds since the program started; each start begins with a
+`===` line. Past 128 KB it moves to `log.old.txt`.
 
 ## How to test on the GameCube
 
@@ -152,7 +172,9 @@ order of risk:
    For a local catalog, add the LAN source on the console: Sources, X, type
    `http://<mac-ip>:8765/index.json`.
 4. Then: refresh, install CubeBrowser (a zip with a `root` folder and a `keep`
-   folder; a bare `.dol` entry and `copy_to_root` still need a test app), check `sd:/apps/<folder>`,
+   folder), gcradio (a bare `.dol`) and the test source's `copytest`
+   (`copy_to_root` and `keep`; `serve.sh` prints its address and the catalog
+   README says what to check), check `sd:/apps/<folder>`,
    `installed.txt` and the stamp file, start an app, bump a version in the
    catalog and confirm the Installed screen's Y filter offers the update,
    remove an app.
@@ -160,8 +182,9 @@ order of risk:
 ## Next steps (suggested order)
 
 1. Hardware test and fix what it finds.
-2. Grow the catalog (`gc-homebrew-hub/gc-homebrew-hub-catalog`), including
-   at least one bare `.dol` app and one using `copy_to_root`.
+2. Grow the catalog (`gc-homebrew-hub/gc-homebrew-hub-catalog`). Bare `.dol`
+   apps are in it (gcradio, GC Station); `copy_to_root` is only in the test
+   source so far.
 3. Phase 2 ideas from the original plan: app icons in the catalog (JSON
    field + download + texture LRU), search, a sound on menu moves, argv for
    extra arguments, a quiet start-up update count shown on the cube screen

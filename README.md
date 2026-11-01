@@ -35,8 +35,10 @@ curl ships). Without it HTTPS still works, but servers are not verified; the
 Settings screen says which it is.
 
 The program keeps its files next to `boot.dol`: `settings.ini`, `sources.txt`,
-`installed.txt` and `cache/` (the last copy of every catalog, so the lists
-work offline).
+`installed.txt`, `cache/` (the last copy of every catalog, so the lists
+work offline) and `log.txt`, which records what the program did: each
+catalog fetch, each install step, every message shown and any error. Send
+it along when reporting a problem.
 
 ## Using it
 
@@ -171,7 +173,8 @@ the card as `licenses/inter-ofl.txt`.
 | `catalog.c`, `json.c` | sources, catalog parsing, the installed list, versions |
 | `store.c` | the worker thread: network start, catalog refresh, install, remove |
 | `net.c` | DHCP, DNS, SNTP, HTTP/HTTPS client (mbedTLS) |
-| `zipx.c`, `digest.c`, `fsutil.c` | unzip (libzip), SHA-256, file helpers |
+| `zipx.c`, `tarxz.c`, `digest.c`, `fsutil.c` | unzip (libzip), .tar.xz (liblzma), SHA-256, file helpers |
+| `log.c`, `memstat.c` | `log.txt` on the card, free memory |
 | `dol.c`, `dol_stub.S` | starting another program |
 
 ## Known limits
