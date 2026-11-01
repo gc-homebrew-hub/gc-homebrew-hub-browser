@@ -140,6 +140,29 @@ bool fs_copy_tree(const char *src, const char *dst, bool keep_existing) {
     return fs_copy_file(src, dst);
 }
 
+static bool move_over(const char *src, const char *dst, int depth) {
+    if (depth > MAX_DEPTH || !fs_mkdirs(dst)) return false;
+    DIR *d = opendir(src);
+    if (!d) return false;
+    bool ok = true;
+    struct dirent *e;
+    char a[PATH_CAP], b[PATH_CAP], tmp[PATH_CAP + 4];
+    while (ok && (e = readdir(d)) != NULL) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        if (!fs_join(a, sizeof a, src, e->d_name) || !fs_join(b, sizeof b, dst, e->d_name)) { ok = false; break; }
+        if (fs_is_dir(a)) { ok = move_over(a, b, depth + 1); continue; }
+        snprintf(tmp, sizeof tmp, "%s.new", b);
+        remove(tmp);
+        if (rename(a, tmp) != 0 && !fs_copy_file(a, tmp)) { ok = false; break; }
+        remove(b);
+        ok = rename(tmp, b) == 0;
+    }
+    closedir(d);
+    return ok;
+}
+
+bool fs_move_over(const char *src, const char *dst) { return move_over(src, dst, 0); }
+
 bool fs_free_space(const char *path, unsigned long long *bytes) {
     struct statvfs st;
     if (statvfs(path, &st) != 0) return false;

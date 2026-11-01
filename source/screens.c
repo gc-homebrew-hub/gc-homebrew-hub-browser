@@ -127,7 +127,8 @@ static void details_actions(void) {
     if (a && installed && a->update) det_actions[det_nact++] = ACT_UPDATE;
     if (installed) det_actions[det_nact++] = ACT_START;
     if (a && installed && !a->update) det_actions[det_nact++] = ACT_INSTALL;   /* reinstall */
-    if (installed) det_actions[det_nact++] = ACT_REMOVE;
+    /* the running program cannot delete itself */
+    if (installed && !catalog_is_self(catalog_installed(det_inst)->folder)) det_actions[det_nact++] = ACT_REMOVE;
     if (det_btn >= det_nact) det_btn = det_nact ? det_nact - 1 : 0;
 }
 

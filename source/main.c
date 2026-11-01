@@ -54,6 +54,7 @@ int main(int argc, char **argv) {
         settings_load(path);
     } else settings_defaults();
     catalog_set_card(have_card);
+    catalog_set_self(APP_VERSION);
     catalog_init(DATA_DIR);
     store_init();
     if (!have_card) ui_toast("No SD card: you can browse, but not install", true);
