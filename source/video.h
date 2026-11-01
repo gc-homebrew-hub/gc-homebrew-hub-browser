@@ -17,6 +17,9 @@ bool video_is_widescreen(void);
 int  video_frame_count(void);
 
 /* 2D (ortho, y down, 640x480 logical pixels) */
+/* Scales the alpha of everything drawn after it (0-1), to fade a whole
+ * element in or out; set it back to 1 afterwards. */
+void gfx_set_opacity(float a);
 void gfx_rect(float x, float y, float w, float h, Color c);
 void gfx_rect_gradient(float x, float y, float w, float h, Color top, Color bottom);
 void gfx_rect_hgradient(float x, float y, float w, float h, Color left, Color right);

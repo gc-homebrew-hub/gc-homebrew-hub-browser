@@ -206,7 +206,7 @@ static void details_draw(void) {
         ui_side_line(&y, "Folder", in->folder, C_TEXT);
         ui_side_line(&y, "Program", in->binary, C_TEXT);
     }
-    ui_side_hints("D-pad  Choose    A  Do it    B  Back");
+    ui_side_hints("D-pad  Choose    A  Select    B  Back");
 
     /* the main panel */
     float x = MAIN_X, w = MAIN_W, py = BODY_Y, ph = BODY_BOTTOM - BODY_Y, lx = x + 16, tw = w - 32;
@@ -243,9 +243,11 @@ static void details_draw(void) {
     details_actions();
     float bh = 34, by = py + ph - bh - 14;
     if (store_busy()) {
+        /* the step on its own line, the bar the full width below it: step
+         * names vary in length, and a bar beside them ran over the longer ones */
         snprintf(line, sizeof line, "%s...", store_step());
-        font_draw(lx, by + (bh - font_height(FS_BODY)) / 2, FS_BODY, C_TEXT, line);
-        ui_progress(lx + 170, by + 12, tw - 170, 10, store_progress());
+        font_draw_clip(lx, by - 4, FS_BODY, C_TEXT, line, tw);
+        ui_progress(lx, by + bh - 10, tw, 10, store_progress());
         return;
     }
     float bx = lx;
