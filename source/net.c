@@ -26,7 +26,7 @@
 #define POLL_SLICE_MS     250
 #define SNTP_TIMEOUT_MS   3000
 #define MAX_REDIRECTS     5
-#define MAX_URL           512
+#define MAX_URL           2048     /* GitHub's signed download redirects run to ~1000 */
 #define MAX_HOST          256
 #define READ_BUF_SIZE     (32 * 1024)
 #define FILE_BUF_SIZE     (64 * 1024)
@@ -803,6 +803,7 @@ static bool sink_flush(Sink *s)
 static bool sink_write(Sink *s, const unsigned char *p, size_t n)
 {
     NetReq *r = s->r;
+    r->received += n;
     if (s->f) {
         while (n > 0) {
             size_t room = FILE_BUF_SIZE - s->fbuf_used;
@@ -837,7 +838,6 @@ static bool sink_write(Sink *s, const unsigned char *p, size_t n)
         r->len += n;
         r->mem[r->len] = '\0';
     }
-    r->received += n;
     return true;
 }
 
@@ -976,6 +976,7 @@ typedef struct {
     bool has_length;
     size_t length;
     char location[MAX_URL];
+    bool location_too_long;
 } Head;
 
 static bool contains_ci(const char *s, const char *needle)
@@ -1037,7 +1038,9 @@ static bool head_parse(char *hdr, Head *h)
                     h->chunked = true;
                 }
             } else if (strcasecmp(line, "Location") == 0) {
-                strncpy(h->location, val, sizeof h->location - 1);
+                /* one too long stays empty and fails below, rather than cut */
+                if (vlen < sizeof h->location) memcpy(h->location, val, vlen + 1);
+                else h->location_too_long = true;
             }
         }
         if (!nl) {
@@ -1176,6 +1179,10 @@ bool net_get(NetReq *r)
         }
         r->status = h->status;
 
+        if (is_redirect(h->status) && h->location_too_long) {
+            req_err(r, "Redirect address too long");
+            goto out;
+        }
         if (is_redirect(h->status) && h->location[0]) {
             conn_close(c);
             if (hops >= MAX_REDIRECTS) {

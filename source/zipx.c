@@ -1,23 +1,57 @@
 #include "zipx.h"
 #include "fsutil.h"
+#include "log.h"
+#include "memstat.h"
 #include "tarxz.h"
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <zip.h>
 
 #define BUF_SIZE 65536
+#define ZIP_RESERVE ((size_t)2 << 20)    /* left free beside a zip read whole */
+
+/* Opens a zip. When it fits in memory it is read whole and opened from there:
+ * libzip's file source goes through open, fdopen, stat and fseeko, and on the
+ * console that failed with "Internal error" for every zip. The file source
+ * stays as the way for a zip too big to hold. */
+static zip_t *open_zip(const char *path, char *err, size_t errlen) {
+    long long size = fs_file_size(path);
+    if (size > 0 && (size_t)size + ZIP_RESERVE <= mem_largest_free()) {
+        char *data; size_t len;
+        if (fs_read_file(path, &data, &len, (size_t)size + 1)) {
+            zip_error_t e; zip_error_init(&e);
+            zip_source_t *src = zip_source_buffer_create(data, len, 1, &e);
+            zip_t *z = NULL;
+            if (!src) free(data);
+            else if (!(z = zip_open_from_source(src, ZIP_RDONLY, &e))) zip_source_free(src);
+            if (z) { zip_error_fini(&e); return z; }
+            log_printf("Zip %s from memory: %s (libzip %d, system %d)", path, zip_error_strerror(&e),
+                       zip_error_code_zip(&e), zip_error_code_system(&e));
+            snprintf(err, errlen, "Cannot open the zip: %s", zip_error_strerror(&e));
+            zip_error_fini(&e);
+            return NULL;
+        }
+        log_printf("Zip %s: could not read it into memory", path);
+    }
+    int zerr = 0;
+    errno = 0;
+    zip_t *z = zip_open(path, ZIP_RDONLY, &zerr);
+    if (!z) {
+        int sys = errno;
+        zip_error_t e; zip_error_init_with_code(&e, zerr);
+        log_printf("Zip %s from the card: %s (libzip %d, errno %d)", path, zip_error_strerror(&e), zerr, sys);
+        snprintf(err, errlen, "Cannot open the zip: %s", zip_error_strerror(&e));
+        zip_error_fini(&e);
+    }
+    return z;
+}
 
 static bool unzip_to_dir(const char *zip_path, const char *dest, const char *const *only, volatile int *cancel,
                          volatile size_t *done, volatile size_t *total, char *err, size_t errlen) {
-    int zerr = 0;
-    zip_t *z = zip_open(zip_path, ZIP_RDONLY, &zerr);
-    if (!z) {
-        zip_error_t e; zip_error_init_with_code(&e, zerr);
-        snprintf(err, errlen, "Cannot open the zip: %s", zip_error_strerror(&e));
-        zip_error_fini(&e);
-        return false;
-    }
+    zip_t *z = open_zip(zip_path, err, errlen);
+    if (!z) return false;
     zip_int64_t n = zip_get_num_entries(z, 0);
     if (n < 0 || n > 4096) { snprintf(err, errlen, "The zip has too many files"); zip_discard(z); return false; }
     if (total) *total = (size_t)n;
@@ -88,8 +122,8 @@ bool unpack_to_dir(const char *path, const char *dest, const char *const *only, 
 }
 
 bool unzip_file(const char *zip_path, const char *member, const char *out_path, char *err, size_t errlen) {
-    int zerr = 0;
-    zip_t *z = zip_open(zip_path, ZIP_RDONLY, &zerr);
+    char why[96];
+    zip_t *z = open_zip(zip_path, why, sizeof why);
     if (!z) { snprintf(err, errlen, "cannot open the inner zip"); return false; }
     zip_int64_t i = zip_name_locate(z, member, 0);
     zip_file_t *f = i >= 0 ? zip_fopen_index(z, (zip_uint64_t)i, 0) : NULL;
