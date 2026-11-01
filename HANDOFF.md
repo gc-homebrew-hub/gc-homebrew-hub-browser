@@ -192,7 +192,7 @@ order of risk:
   catalog repo. Fields the store understands: slug, name, author, version,
   category (games/emulators/media/utilities/demos), short, long, homepage,
   zip, archive or dol, zip_size, sha256, root, binary, folder, keep[],
-  copy_to_root[], updated. Limits: 256 apps per source, index at most 256 KB,
+  copy_to_root[], replace_at_root[], updated. Limits: 256 apps per source, index at most 256 KB,
   16 sources.
 - Downloads are unpacked by their first bytes, not their name: a zip
   (libzip) or a .tar.xz (`tarxz.c`, liblzma, which libzip already pulls in).
@@ -200,6 +200,22 @@ order of risk:
   without .tar.xz support skip the entry instead of failing to install it.
   Only entries under `root` are written to the card. .7z is not supported:
   it needs another decoder and usually 16-64 MB to unpack.
+- `replace_at_root` (Swiss: its .dol over `sd:/ipl.dol`, for PicoBoot or
+  PicoLoader with gekkoboot, and `swiss/patches/apploader.img`, which Swiss
+  reads only for Apploader in-game reset and .tgc files and which embeds its
+  own copy of Swiss) only replaces a file that is already on the card,
+  and only after a "Boot file" confirm (B installs to `sd:/apps` only). The
+  new copy is written as `<file>.new` and compared first; the old file moves
+  to `sd:/<archive>/<version>/` (one folder per install), named after the
+  installed version when a root file is that version's program, else
+  `before-<new version>`, with `-2` and so on rather than overwriting. Only
+  between the two renames is there no boot file; a failed second rename puts
+  the old one back. `file` is a path in the download, or `outer.zip!path` for
+  a file in a zip inside it (Swiss's apploader.img is in
+  `Apploader/EXTRACT_TO_ROOT.zip`); the unpacker writes the root folder plus
+  those outer files, and they are copied out to `stage/<slug>.root<n>` before
+  the app folder is swapped in.
+  FlippyDrive and GC Loader keep Swiss on their own cards, out of reach.
 - The xz decoder needs about the archive's dictionary size in RAM (8.5 MB for
   Swiss's `xz -6`); `XZ_MEMLIMIT` in `tarxz.c` refuses anything over 16 MB.
   Whether 8.5 MB is free on the console during an install has NOT been

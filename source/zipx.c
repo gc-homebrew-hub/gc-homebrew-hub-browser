@@ -8,7 +8,7 @@
 
 #define BUF_SIZE 65536
 
-static bool unzip_to_dir(const char *zip_path, const char *dest, const char *only, volatile int *cancel,
+static bool unzip_to_dir(const char *zip_path, const char *dest, const char *const *only, volatile int *cancel,
                          volatile size_t *done, volatile size_t *total, char *err, size_t errlen) {
     int zerr = 0;
     zip_t *z = zip_open(zip_path, ZIP_RDONLY, &zerr);
@@ -42,10 +42,7 @@ static bool unzip_to_dir(const char *zip_path, const char *dest, const char *onl
         snprintf(clean, sizeof clean, "%.*s", (int)(is_dir ? rl - 1 : rl), rel);
         if (!*clean) continue;
         if (!fs_safe_relative(clean)) { snprintf(err, errlen, "The zip contains an unsafe path"); ok = false; break; }
-        if (only && *only) {
-            size_t ol = strlen(only);
-            if (strncmp(clean, only, ol) || (clean[ol] && clean[ol] != '/')) continue;
-        }
+        if (!fs_path_wanted(clean, only)) continue;
         char path[512];
         if (!fs_join(path, sizeof path, dest, clean)) { snprintf(err, errlen, "A path in the zip is too long"); ok = false; break; }
         if (is_dir) { ok = fs_mkdirs(path); if (!ok) snprintf(err, errlen, "Cannot create a folder on the card"); continue; }
@@ -75,7 +72,7 @@ static bool unzip_to_dir(const char *zip_path, const char *dest, const char *onl
     return ok;
 }
 
-bool unpack_to_dir(const char *path, const char *dest, const char *only, volatile int *cancel,
+bool unpack_to_dir(const char *path, const char *dest, const char *const *only, volatile int *cancel,
                    volatile size_t *done, volatile size_t *total, char *err, size_t errlen) {
     unsigned char magic[6] = { 0 };
     FILE *f = fopen(path, "rb");
@@ -88,4 +85,24 @@ bool unpack_to_dir(const char *path, const char *dest, const char *only, volatil
         return untarxz_to_dir(path, dest, only, cancel, done, total, err, errlen);
     snprintf(err, errlen, "The download is not a zip or .tar.xz");
     return false;
+}
+
+bool unzip_file(const char *zip_path, const char *member, const char *out_path, char *err, size_t errlen) {
+    int zerr = 0;
+    zip_t *z = zip_open(zip_path, ZIP_RDONLY, &zerr);
+    if (!z) { snprintf(err, errlen, "cannot open the inner zip"); return false; }
+    zip_int64_t i = zip_name_locate(z, member, 0);
+    zip_file_t *f = i >= 0 ? zip_fopen_index(z, (zip_uint64_t)i, 0) : NULL;
+    if (!f) { snprintf(err, errlen, "%.60s is not in the inner zip", member); zip_discard(z); return false; }
+    FILE *out = fopen(out_path, "wb");
+    char *buf = malloc(BUF_SIZE);
+    zip_int64_t got = out && buf ? 0 : -1;
+    while (got >= 0 && (got = zip_fread(f, buf, BUF_SIZE)) > 0)
+        if (fwrite(buf, 1, (size_t)got, out) != (size_t)got) got = -1;
+    free(buf);
+    zip_fclose(f);
+    zip_discard(z);
+    if (out && fclose(out) != 0) got = -1;
+    if (got < 0) { remove(out_path); snprintf(err, errlen, "cannot unpack %.60s (card full?)", member); return false; }
+    return true;
 }

@@ -35,7 +35,22 @@ const char *store_step(void) { return step_text; }
 float store_progress(void) { return progress; }
 const char *store_job_name(void) { return job; }
 void store_request_refresh(void) {}
-void store_request_install(int i) { (void)i; }
+void store_request_install(int i, bool replace_root) { (void)i; (void)replace_root; }
+/* as in store.c: the app's root files that are on the (stand-in) card */
+int store_root_targets(int i, char *list, size_t cap) {
+    App *a = catalog_app(i);
+    int n = 0;
+    if (cap) list[0] = 0;
+    for (int k = 0; a && catalog_have_card() && k < a->nreplace; k++) {
+        char target[64];
+        snprintf(target, sizeof target, "sd:/%s", a->replace[k].to);
+        if (!fs_exists(target)) continue;
+        size_t l = strlen(list);
+        snprintf(list + l, cap - l, "%s%s", n ? " and " : "", target);
+        n++;
+    }
+    return n;
+}
 void store_request_remove(int i) { (void)i; }
 void store_cancel(void) {}
 bool store_take_message(char *out, size_t cap, bool *error) { (void)out; (void)cap; (void)error; return false; }
@@ -60,7 +75,9 @@ void input_sticks(float *x, float *y, float *cx, float *cy) { *x = stick[0]; *y 
 static const char *index_json =
 "{ \"format\": 1, \"name\": \"GC Homebrew Hub\", \"apps\": ["
 "{\"slug\":\"swiss\",\"name\":\"Swiss\",\"author\":\"emu_kidid\",\"version\":\"0.6r1913\",\"category\":\"utilities\","
-" \"short\":\"The Swiss army knife of GameCube homebrew\",\"long\":\"Boots games and homebrew from SD, network, IDE-EXI and more, with cheats, video mode forcing and a file manager.\",\"zip\":\"http://x/swiss.zip\",\"zip_size\":4194304},"
+" \"short\":\"The Swiss army knife of GameCube homebrew\",\"long\":\"Boots games and homebrew from SD, network, IDE-EXI and more, with cheats, video mode forcing and a file manager.\",\"archive\":\"http://x/swiss.tar.xz\",\"zip_size\":11199948,"
+" \"replace_at_root\":[{\"file\":\"s/DOL/swiss.dol\",\"to\":\"ipl.dol\",\"archive\":\"swiss_archive\"},"
+" {\"file\":\"s/Apploader/EXTRACT_TO_ROOT.zip!swiss/patches/apploader.img\",\"to\":\"swiss/patches/apploader.img\",\"archive\":\"swiss_archive\"}]},"
 "{\"slug\":\"cubebrowser\",\"name\":\"CubeBrowser\",\"author\":\"Arial-Bold\",\"version\":\"1.4\",\"category\":\"utilities\","
 " \"short\":\"A web browser for the GameCube\",\"long\":\"Browse simple web pages over the Broadband Adapter.\",\"zip\":\"http://x/cb.zip\",\"zip_size\":1887436},"
 "{\"slug\":\"flashcube\",\"name\":\"Flashcube\",\"author\":\"lunzer\",\"version\":\"2.1\",\"category\":\"media\","
@@ -92,6 +109,10 @@ static void make_card(void) {
         fs_mkdirs(d);
         fs_write_file(p, "dol", 3);
     }
+    /* Swiss booted by PicoBoot: its boot files at the root of the card */
+    fs_write_file("sd:/ipl.dol", "dol", 3);
+    fs_mkdirs("sd:/swiss/patches");
+    fs_write_file("sd:/swiss/patches/apploader.img", "img", 3);
     settings_defaults();
     catalog_set_card(true);
     catalog_init("sd:/apps/gc-homebrew-hub-browser");
@@ -204,5 +225,11 @@ int main(int argc, char **argv) {
     /* browsing without a card (as in Dolphin) */
     idle(320); catalog_set_card(false);
     section(-2); idle(4);                      shot("13-no-card");
+    /* installing Swiss when its boot files are on the card */
+    catalog_set_card(true);
+    screens_open(SCR_STORE); idle(4);
+    for (int i = 0; i < 12; i++) press(BTN_UP);
+    press(BTN_A); idle(4);                     shot("14-swiss-details");
+    press(BTN_A); idle(4);                     shot("15-boot-file");
     return 0;
 }

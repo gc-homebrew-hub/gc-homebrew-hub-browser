@@ -26,6 +26,12 @@ typedef struct {
     char status[64];     /* "12 apps" / "Failed: ..." */
 } Source;
 
+/* A file from the download that replaces one at the root of the card (a boot
+ * file such as ipl.dol), when the user agrees and one is there. `from` is a
+ * path in the archive, or "inner.zip!path" for a file in a zip inside it; for
+ * a bare .dol it is the binary. */
+typedef struct { char from[112], to[48], archive[48]; } RootFile;
+
 typedef struct {
     char slug[32], name[48], author[40], version[24], category[16];
     char summary[96], description[1024], homepage[160];
@@ -36,6 +42,7 @@ typedef struct {
     char root[64], binary[48], folder[48];
     char keep[4][64]; int nkeep;
     char to_root[4][48]; int nto_root;
+    RootFile replace[2]; int nreplace;   /* replace_at_root */
     long long updated;
     int  source;
     /* links to the card, filled by catalog_recompute() */
