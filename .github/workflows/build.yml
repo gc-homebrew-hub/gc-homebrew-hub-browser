@@ -71,7 +71,7 @@ jobs:
 
       - name: Host tests
         run: |
-          sudo apt-get install -y --no-install-recommends liblzma-dev libzip-dev
+          sudo apt-get install -y --no-install-recommends liblzma-dev zlib1g-dev
           make test
 
       - uses: actions/upload-artifact@v4

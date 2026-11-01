@@ -332,35 +332,108 @@ static void test_root_replace(void) {
           has("rr/ipl.dol", "OLD3") && !fs_exists("rr/arch/r3") && !fs_exists("rr/ipl.dol.new"), "failure leaves it alone");
 }
 
-#ifdef HAVE_LIBZIP
 #include "zipx.h"
-#include <zip.h>
+#include <zlib.h>
 
-/* zips are built with libzip; the console reads them with the same library */
+/* ---- zips, built here: stored or deflated entries, optionally with the
+ * sizes in a data descriptor after the data as streaming zip tools write ---- */
+
+typedef struct { const char *name; const void *data; size_t len; int method; bool descriptor; } ZEnt;
+
+static void put16(Buf *b, unsigned v) { unsigned char c[2] = { v & 255, v >> 8 & 255 }; put(b, c, 2); }
+static void put32(Buf *b, uint32_t v) { put16(b, v & 0xffff); put16(b, v >> 16); }
+
+static bool write_zip(const char *path, const ZEnt *e, int n) {
+    Buf z = { 0 }, cd = { 0 };
+    for (int i = 0; i < n; i++) {
+        uint32_t crc = (uint32_t)crc32(0, e[i].data, (uInt)e[i].len);
+        unsigned char *comp = malloc(e[i].len + 64);
+        size_t clen = e[i].len;
+        if (e[i].method == 8) {
+            z_stream s = { 0 };
+            deflateInit2(&s, 6, Z_DEFLATED, -MAX_WBITS, 8, Z_DEFAULT_STRATEGY);
+            s.next_in = (Bytef *)e[i].data; s.avail_in = (uInt)e[i].len;
+            s.next_out = comp; s.avail_out = (uInt)(e[i].len + 64);
+            deflate(&s, Z_FINISH);
+            clen = s.total_out;
+            deflateEnd(&s);
+        } else memcpy(comp, e[i].data, e[i].len);
+        uint32_t off = (uint32_t)z.n;
+        unsigned flags = e[i].descriptor ? 8 : 0;
+        size_t nl = strlen(e[i].name);
+        put32(&z, 0x04034b50); put16(&z, 20); put16(&z, flags); put16(&z, (unsigned)e[i].method);
+        put16(&z, 0); put16(&z, 0x21);
+        put32(&z, e[i].descriptor ? 0 : crc); put32(&z, e[i].descriptor ? 0 : (uint32_t)clen);
+        put32(&z, e[i].descriptor ? 0 : (uint32_t)e[i].len);
+        put16(&z, (unsigned)nl); put16(&z, 0); put(&z, e[i].name, nl);
+        put(&z, comp, clen);
+        if (e[i].descriptor) { put32(&z, 0x08074b50); put32(&z, crc); put32(&z, (uint32_t)clen); put32(&z, (uint32_t)e[i].len); }
+        put32(&cd, 0x02014b50); put16(&cd, 0x031e); put16(&cd, 20); put16(&cd, flags); put16(&cd, (unsigned)e[i].method);
+        put16(&cd, 0); put16(&cd, 0x21); put32(&cd, crc); put32(&cd, (uint32_t)clen); put32(&cd, (uint32_t)e[i].len);
+        put16(&cd, (unsigned)nl); put16(&cd, 0); put16(&cd, 0); put16(&cd, 0); put16(&cd, 0); put32(&cd, 0); put32(&cd, off);
+        put(&cd, e[i].name, nl);
+        free(comp);
+    }
+    uint32_t cd_off = (uint32_t)z.n;
+    put(&z, cd.p, cd.n);
+    put32(&z, 0x06054b50); put16(&z, 0); put16(&z, 0); put16(&z, (unsigned)n); put16(&z, (unsigned)n);
+    put32(&z, (uint32_t)cd.n); put32(&z, cd_off); put16(&z, 5); put(&z, "hello", 5);   /* with a comment */
+    bool ok = fs_write_file(path, z.p, z.n);
+    free(z.p); free(cd.p);
+    return ok;
+}
+
 static void test_zip(void) {
     char err[128];
-    int ze;
-    remove("inner.zip");
-    zip_t *z = zip_open("inner.zip", ZIP_CREATE | ZIP_TRUNCATE, &ze);
-    zip_file_add(z, "swiss/patches/apploader.img", zip_source_buffer(z, "IMG", 3, 0), 0);
-    CHECK(z && zip_close(z) == 0, "write inner zip");
+    /* big enough to take several reads and inflate calls */
+    size_t blen = 300000;
+    char *big = malloc(blen);
+    for (size_t i = 0; i < blen; i++) big[i] = (char)("abcdefgh"[i % 8] + (i / 4096) % 7);
+    ZEnt inner[] = { { "swiss/patches/apploader.img", "IMG", 3, 8, false } };
+    CHECK(write_zip("inner.zip", inner, 1), "write inner zip");
     CHECK(unzip_file("inner.zip", "swiss/patches/apploader.img", "img.out", err, sizeof err) && has("img.out", "IMG"),
           "member out of a zip: %s", err);
     CHECK(!unzip_file("inner.zip", "nope", "nope.out", err, sizeof err) && !fs_exists("nope.out"), "missing member refused");
 
-    remove("outer.zip");
-    z = zip_open("outer.zip", ZIP_CREATE | ZIP_TRUNCATE, &ze);
-    zip_file_add(z, "s/DOL/s.dol", zip_source_buffer(z, "DOL", 3, 0), 0);
-    zip_file_add(z, "s/Apploader/X.zip", zip_source_file(z, "inner.zip", 0, -1), 0);
-    zip_file_add(z, "s/ISO/big.iso", zip_source_buffer(z, "ISO", 3, 0), 0);
-    CHECK(zip_close(z) == 0, "write outer zip");
+    char *innerz; size_t innerl;
+    fs_read_file("inner.zip", &innerz, &innerl, 1 << 20);
+    ZEnt outer[] = {
+        { "s/", "", 0, 0, false },
+        { "s/DOL/s.dol", "DOL", 3, 0, false },
+        { "s/DOL/big.bin", big, blen, 8, true },
+        { "s/DOL/empty.txt", "", 0, 8, false },
+        { "s/Apploader/X.zip", innerz, innerl, 0, false },
+        { "s/ISO/big.iso", "ISO", 3, 8, false },
+    };
+    CHECK(write_zip("outer.zip", outer, 6), "write outer zip");
     fs_remove_tree("zout");
-    CHECK(unpack_to_dir("outer.zip", "zout", (const char *[]){ "s/DOL", "s/Apploader/X.zip", NULL }, NULL, NULL, NULL,
+    size_t done = 0, total = 0;
+    CHECK(unpack_to_dir("outer.zip", "zout", (const char *[]){ "s/DOL", "s/Apploader/X.zip", NULL }, NULL, &done, &total,
                         err, sizeof err), "unpack zip: %s", err);
     CHECK(has("zout/s/DOL/s.dol", "DOL") && fs_exists("zout/s/Apploader/X.zip") && !fs_exists("zout/s/ISO"),
           "zip: root folder and listed file only");
+    char *got; size_t gl;
+    CHECK(fs_read_file("zout/s/DOL/big.bin", &got, &gl, 1 << 20) && gl == blen && !memcmp(got, big, blen), "deflated, with a data descriptor");
+    free(got);
+    CHECK(fs_file_size("zout/s/DOL/empty.txt") == 0 && total == 6 && done == 5, "empty file, progress %zu/%zu", done, total);
+
+    /* damage is caught by the CRC, and nothing half-written stays */
+    char *zb; size_t zl;
+    fs_read_file("outer.zip", &zb, &zl, 1 << 20);
+    for (size_t i = 0; i + 14 < zl; i++)      /* the stored s.dol's contents, after its name */
+        if (!memcmp(zb + i, "s/DOL/s.dolDOL", 14)) { zb[i + 11] = 'X'; break; }
+    fs_write_file("bad.zip", zb, zl);
+    free(zb);
+    fs_remove_tree("zbad");
+    CHECK(!unpack_to_dir("bad.zip", "zbad", NULL, NULL, NULL, NULL, err, sizeof err) && strstr(err, "damaged") &&
+          !fs_exists("zbad/s/DOL/s.dol"), "bad CRC refused: %s", err);
+    ZEnt evil[] = { { "../escape.txt", "x", 1, 0, false } };
+    write_zip("evil.zip", evil, 1);
+    CHECK(!unpack_to_dir("evil.zip", "zevil", NULL, NULL, NULL, NULL, err, sizeof err) && !fs_exists("escape.txt"), "unsafe path refused");
+    fs_write_file("notzip.zip", "PK\3\4 but no end record", 24);
+    CHECK(!unpack_to_dir("notzip.zip", "znot", NULL, NULL, NULL, NULL, err, sizeof err), "no end record refused");
+    free(innerz); free(big);
 }
-#endif
 
 static void test_log(void) {
     fs_mkdirs("logt");
@@ -397,11 +470,7 @@ int main(void) {
     test_tarxz();
     test_root_replace();
     test_log();
-#ifdef HAVE_LIBZIP
     test_zip();
-#else
-    printf("(no libzip: zip checks skipped)\n");
-#endif
     printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

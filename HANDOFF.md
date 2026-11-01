@@ -51,7 +51,7 @@ format is the only thing shared.
   confirm dialog.
 - Worker thread (`store.c`): network start (DHCP), CA bundle load, source
   list fetch, index fetch per source with on-card cache, install (download to
-  `dl/`, size and SHA-256 check, unzip with libzip or place a bare `.dol`,
+  `dl/`, size and SHA-256 check, unzip (`zipx.c`, on zlib) or place a bare `.dol`,
   `keep` files, atomic folder swap via `.old`, `copy_to_root` once, stamp file
   `.gc-homebrew-app`), remove, messages back to the UI.
 - `net.c` (written by a subagent, reviewed only by compile and its report):
@@ -224,7 +224,9 @@ Lines start with seconds since the program started; each start begins with a
   copy_to_root[], replace_at_root[], updated. Limits: 256 apps per source, index at most 256 KB,
   16 sources.
 - Downloads are unpacked by their first bytes, not their name: a zip
-  (libzip) or a .tar.xz (`tarxz.c`, liblzma, which libzip already pulls in).
+  (`zipx.c`, a reader of its own on zlib: stored and deflated entries, no
+  zip64; libzip 1.10.1 from devkitPro failed with "Internal error" on every
+  zip on the console) or a .tar.xz (`tarxz.c`, liblzma).
   Catalogs name a .tar.xz with `archive` rather than `zip` so that versions
   without .tar.xz support skip the entry instead of failing to install it.
   Only entries under `root` are written to the card. .7z is not supported:
