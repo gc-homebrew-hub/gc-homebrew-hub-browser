@@ -1,5 +1,7 @@
 #include "tarxz.h"
 #include "fsutil.h"
+#include "log.h"
+#include "memstat.h"
 #include <lzma.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +11,7 @@
 /* The decoder needs about the archive's dictionary size: 8.5 MB for
  * Swiss's (xz -6). Anything wanting more would not fit next to the program. */
 #define XZ_MEMLIMIT (16u << 20)
+#define XZ_RESERVE  (1u << 20)      /* left free for the rest of the program meanwhile */
 #define MAX_ENTRIES 4096
 
 typedef enum { T_HEADER, T_DATA, T_LONGNAME, T_PAX, T_SKIP, T_END } TarState;
@@ -183,7 +186,14 @@ bool untarxz_to_dir(const char *path, const char *dest, const char *const *only,
     lzma_stream s = LZMA_STREAM_INIT;
     bool ok = inbuf && outbuf && t;
     if (!ok) snprintf(err, errlen, "Out of memory");
-    if (ok && lzma_stream_decoder(&s, XZ_MEMLIMIT, LZMA_CONCATENATED) != LZMA_OK) {
+    /* the decoder may use what is free now (its dictionary is one block),
+     * less room for everything else that runs meanwhile */
+    size_t avail = ok ? mem_largest_free() : 0;
+    uint64_t limit = XZ_MEMLIMIT;
+    if (avail < XZ_MEMLIMIT + XZ_RESERVE) limit = avail > XZ_RESERVE ? avail - XZ_RESERVE : 1;
+    if (ok) log_printf("Unpacking %s: largest free block %zu KB, decoder limit %llu KB",
+                       path, avail >> 10, (unsigned long long)(limit >> 10));
+    if (ok && lzma_stream_decoder(&s, limit, LZMA_CONCATENATED) != LZMA_OK) {
         snprintf(err, errlen, "Out of memory"); ok = false;
     }
     if (ok && !fs_mkdirs(dest)) { snprintf(err, errlen, "Cannot create %s", dest); ok = false; }
@@ -207,9 +217,12 @@ bool untarxz_to_dir(const char *path, const char *dest, const char *const *only,
             if (!tar_feed(t, outbuf, BUF_SIZE - s.avail_out)) { ok = false; break; }
             if (r == LZMA_STREAM_END) break;
             if (r == LZMA_OK) continue;
-            if (r == LZMA_MEMLIMIT_ERROR)
-                snprintf(err, errlen, "Unpacking needs %llu MB of memory; there is not that much",
-                         (unsigned long long)(lzma_memusage(&s) >> 20) + 1);
+            if (r == LZMA_MEMLIMIT_ERROR && limit == XZ_MEMLIMIT)
+                snprintf(err, errlen, "Unpacking needs %llu MB of memory; at most %u MB is allowed",
+                         (unsigned long long)(lzma_memusage(&s) >> 20) + 1, XZ_MEMLIMIT >> 20);
+            else if (r == LZMA_MEMLIMIT_ERROR)
+                snprintf(err, errlen, "Unpacking needs %llu MB of memory; only %llu MB can be spared",
+                         (unsigned long long)(lzma_memusage(&s) >> 20) + 1, (unsigned long long)(limit >> 20));
             else if (r == LZMA_MEM_ERROR)
                 snprintf(err, errlen, "Not enough memory to unpack the archive");
             else if (r == LZMA_FORMAT_ERROR)

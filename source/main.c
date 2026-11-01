@@ -3,6 +3,8 @@
 #include "font.h"
 #include "fsutil.h"
 #include "input.h"
+#include "log.h"
+#include "memstat.h"
 #include "screens.h"
 #include "settings.h"
 #include "store.h"
@@ -13,8 +15,21 @@
 #include <sdcard/gcsd.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #define DATA_DIR "sd:/apps/gc-homebrew-hub-browser"
+
+/* Starts the log on the card, with what is worth knowing about this start */
+static void start_log(void) {
+    char path[160];
+    fs_join(path, sizeof path, DATA_DIR, "log.txt");
+    log_open(path);
+    time_t now = time(NULL);
+    char when[32];
+    strftime(when, sizeof when, "%Y-%m-%d %H:%M:%S", localtime(&now));
+    log_printf("=== GC Homebrew Hub Browser %s, console clock %s, %s video, %zu KB free",
+               APP_VERSION, when, VIDEO_GetCurrentTvMode() == VI_PAL ? "PAL" : "NTSC", mem_free_total() >> 10);
+}
 
 static bool mount_card(void) {
     DISC_INTERFACE *ifaces[] = { &__io_gcsd2, &__io_gcsda, &__io_gcsdb };
@@ -34,6 +49,7 @@ int main(int argc, char **argv) {
     char path[160];
     if (have_card) {
         fs_mkdirs(DATA_DIR);
+        start_log();
         fs_join(path, sizeof path, DATA_DIR, "settings.ini");
         settings_load(path);
     } else settings_defaults();
@@ -54,6 +70,7 @@ int main(int argc, char **argv) {
             have_card = mount_card();
             if (have_card) {
                 fs_mkdirs(DATA_DIR);
+                start_log();
                 fs_join(path, sizeof path, DATA_DIR, "settings.ini");
                 settings_load(path);
                 catalog_set_card(true);

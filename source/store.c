@@ -1,11 +1,14 @@
 #include "store.h"
 #include "catalog.h"
 #include "fsutil.h"
+#include "log.h"
+#include "memstat.h"
 #include "net.h"
 #include "settings.h"
 #include "digest.h"
 #include "zipx.h"
 #include <ctype.h>
+#include <errno.h>
 #include <gccore.h>
 #include <malloc.h>
 #include <stdio.h>
@@ -57,7 +60,10 @@ static bool ca_loaded;
 static struct { char text[160]; bool error; } msgs[MSG_SLOTS];
 static int msg_head, msg_count;
 
-static void set_step(const char *s) { snprintf(step, sizeof step, "%s", s); }
+static void set_step(const char *s) {
+    snprintf(step, sizeof step, "%s", s);
+    if (*s) log_printf("%s", s);
+}
 static void set_progress(size_t done, size_t total) { prog_done = done; prog_total = total; prog_known = total != 0; }
 
 static void push_msg(const char *text, bool error) {
@@ -97,11 +103,13 @@ static bool fetch_text(const char *url, size_t max, char **out, size_t *len, cha
         bool ok = net_get(&req);
         downloading = 0;
         if (ok) {
+            log_printf("GET %s: %d, %zu bytes%s", url, req.status, req.len, req.verified ? "" : ", not verified");
             *out = req.mem; *len = req.len;
             req.mem = NULL;
             return true;
         }
         free(req.mem); req.mem = NULL;
+        log_printf("GET %s: try %d of %d failed, status %d: %s", url, t, FETCH_TRIES, req.status, req.err);
         if (t == FETCH_TRIES || !worth_retry(&req)) {
             snprintf(err, errlen, "%s", req.err);
             return false;
@@ -116,12 +124,17 @@ static void job_start(void) {
     char err[128];
     net_up = net_start(err, sizeof err);
     if (!net_up) {
+        log_printf("No network: %s", err);
         snprintf(net_err, sizeof net_err, "%s", err);
         state = STORE_OFFLINE;
         done_ok = 0; snprintf(done_err, sizeof done_err, "No network: %s", err);
         return;
     }
     net_err[0] = 0;
+    time_t now = net_time();
+    char when[32];
+    strftime(when, sizeof when, "%Y-%m-%d %H:%M:%S UTC", gmtime(&now));
+    log_printf("Network up: %s, clock %s", net_ip_string(), when);
     if (g_settings.verify_tls) {
         set_step("Loading certificates");
         char path[160], *pem; size_t len;
@@ -130,6 +143,7 @@ static void job_start(void) {
             ca_loaded = net_set_ca(pem, len, err, sizeof err);
             free(pem);
             if (!ca_loaded) snprintf(done_err, sizeof done_err, "Certificates not loaded: %s", err);
+            else log_printf("Certificates loaded from %s", path);
         } else if (!catalog_have_card()) snprintf(done_err, sizeof done_err, "No SD card, so no cacert.pem: servers are not verified");
         else snprintf(done_err, sizeof done_err, "cacert.pem is missing next to boot.dol; servers are not verified");
     }
@@ -181,6 +195,7 @@ static void job_indexes(void) {
         }
         int before = new_napps;
         if (!catalog_parse_index(text, len, i, new_apps, &new_napps, MAX_APPS, sres[i].name, sizeof sres[i].name, err, sizeof err)) {
+            log_printf("%s: %s", s->url, err);
             sres[i].napps = -1;
             snprintf(sres[i].status, sizeof sres[i].status, "Failed: %.54s", err);
         } else {
@@ -200,9 +215,14 @@ static bool replace_dir(const char *dest, const char *fresh, char *err, size_t e
     snprintf(old, sizeof old, "%.200s.old", dest);
     fs_remove_tree(old);
     bool had = fs_exists(dest);
-    if (had && rename(dest, old) != 0) { snprintf(err, errlen, "Cannot replace the old version"); return false; }
+    if (had && rename(dest, old) != 0) {
+        log_printf("rename %s -> %s: %s", dest, old, strerror(errno));
+        snprintf(err, errlen, "Cannot replace the old version");
+        return false;
+    }
     if (rename(fresh, dest) != 0) {
-        if (had) rename(old, dest);
+        log_printf("rename %s -> %s: %s", fresh, dest, strerror(errno));
+        if (had && rename(old, dest) != 0) log_printf("rename %s -> %s: %s", old, dest, strerror(errno));
         snprintf(err, errlen, "Cannot move the app into place");
         return false;
     }
@@ -219,6 +239,8 @@ static void job_install(void) {
     snprintf(stage, sizeof stage, "%s/stage/%.31s", data, a->slug);
     snprintf(dest, sizeof dest, APPS_DIR "/%.47s", a->folder);
     done_ok = 0;
+    log_printf("Install %s %s (now %s) from %s%s", a->slug, a->version, *job_old_version ? job_old_version : "none",
+               a->url, job_replace_root ? ", replacing root files" : "");
 
     char dir[200];
     snprintf(dir, sizeof dir, "%s/dl", data); fs_mkdirs(dir);
@@ -237,6 +259,8 @@ static void job_install(void) {
     downloading = 1;
     bool ok = net_get(&req);
     downloading = 0;
+    log_printf("Download: status %d, %zu bytes%s%s%s", req.status, req.received, req.verified ? "" : ", not verified",
+               ok ? "" : ": ", ok ? "" : req.err);
     if (!ok) { snprintf(done_err, sizeof done_err, "Download failed: %s", req.err); remove(dl); return; }
     if (a->size && (unsigned long long)fs_file_size(dl) != a->size) {
         snprintf(done_err, sizeof done_err, "The download is not the size the catalog says; try again later");
@@ -266,6 +290,7 @@ static void job_install(void) {
     } else {
         set_step("Unpacking");
         set_progress(0, 0);
+        log_printf("Memory free: %zu KB", mem_free_total() >> 10);
         /* the app's folder, plus the files it may put at the root of the card */
         const char *only[4] = { a->root };
         char outer[2][sizeof a->replace[0].from];
@@ -397,6 +422,7 @@ static void job_remove(void) {
     set_progress(0, 0);
     char dest[200];
     snprintf(dest, sizeof dest, APPS_DIR "/%.47s", job_inst.folder);
+    log_printf("Remove %s from %s", job_inst.slug, dest);
     done_ok = fs_remove_tree(dest);
     if (!done_ok) snprintf(done_err, sizeof done_err, "Could not remove every file of %s", job_inst.name);
 }

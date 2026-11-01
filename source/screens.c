@@ -11,6 +11,8 @@
 #include "net.h"
 #include "dol.h"
 #include "fsutil.h"
+#include "log.h"
+#include "memstat.h"
 #include <gccore.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +55,7 @@ static void launch(const Installed *in) {
     char path[300], err[128];
     snprintf(path, sizeof path, APPS_DIR "/%s/%s", in->folder, in->binary);
     save_settings();
+    log_printf("Start %s", path);
     if (!dol_launch(path, err, sizeof err)) {
         char m[200];
         snprintf(m, sizeof m, "%s did not start: %s", in->name, err);
@@ -468,6 +471,10 @@ static void settings_draw(void) {
     ui_side_line(&y, "Version", APP_VERSION, C_TEXT);
     ui_side_line(&y, "Network", store_net_up() ? net_ip_string() : "not connected", store_net_up() ? C_TEXT : C_BAD);
     ui_side_line(&y, "Files", catalog_datadir(), C_TEXT);
+    char mem[40];
+    unsigned kb = (unsigned)(mem_free_total() >> 10);
+    snprintf(mem, sizeof mem, "%u.%u MB free", kb / 1024, kb % 1024 * 10 / 1024);
+    ui_side_line(&y, "Memory", mem, C_TEXT);
     ui_side_hints("A  Change    B  Sections");
 
     static const char *labels[SET_COUNT] = {

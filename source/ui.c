@@ -1,5 +1,6 @@
 #include "ui.h"
 #include "catalog.h"
+#include "log.h"
 #include "net.h"
 #include "store.h"
 #include <ctype.h>
@@ -474,6 +475,7 @@ void ui_count_badge(float rx, float y, int count) {
 static struct { char text[160]; bool error; int ttl; } toasts[TOASTS];
 
 void ui_toast(const char *text, bool error) {
+    log_printf("%s %s", error ? "Error:" : "Shown:", text);
     memmove(&toasts[1], &toasts[0], sizeof toasts[0] * (TOASTS - 1));
     snprintf(toasts[0].text, sizeof toasts[0].text, "%s", text);
     toasts[0].error = error;
