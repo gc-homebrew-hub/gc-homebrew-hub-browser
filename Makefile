@@ -14,7 +14,7 @@ endif
 
 MBEDTLS		:=	third_party/mbedtls
 
-VERSION		:=	0.2
+VERSION		:=	0.3
 TARGET		:=	boot
 BUILD		:=	build
 SOURCES		:=	source $(MBEDTLS)/library
