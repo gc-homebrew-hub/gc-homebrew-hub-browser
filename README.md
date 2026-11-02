@@ -22,8 +22,16 @@ Not related to any web browser.
 
 ## Putting it on the card
 
-Build (or download) and copy the `package/apps` folder to the root of the
-card, so the card has:
+1. Download `gc-homebrew-hub-browser-v<version>.zip` from the
+   [latest release](https://github.com/gc-homebrew-hub/gc-homebrew-hub-browser/releases/latest).
+2. Unzip it to the root of the SD card. It holds an `apps` folder; merge it
+   with the one already on the card.
+3. Start `boot.dol` from your loader (in Swiss it is listed under `apps`).
+   With a network cable in, the catalog loads on its own; there is nothing
+   to set up.
+
+To build it yourself, see [Building](#building) and copy the `package/apps`
+folder instead. Either way, the card has:
 
 ```
 sd:/apps/gc-homebrew-hub-browser/boot.dol
@@ -58,7 +66,8 @@ in the indigo bar under it.
 The browser is in the catalog too, so it updates itself the same way. Its
 new files go over the old ones in `sd:/apps/gc-homebrew-hub-browser`, and its
 settings, sources and log stay. Start it again afterwards to run the new
-version.
+version. Versions 0.2 and 0.3 cannot unpack zip files on the console, so
+from those, install the latest release by hand once, as above.
 
 The program opens on the Hub. B moves down into the bar of sections (B again
 or Up moves back), Left/Right pick a section and A opens it; on a details page
@@ -189,8 +198,11 @@ the card as `licenses/inter-ofl.txt`.
   a SHA-256", not as secret.
 - DNS is resolved by asking the DHCP gateway, then public resolvers; the
   catalog format carries no icons yet.
-- Tested on the host harness and the toolchain; hardware testing is what
-  comes next.
+- Tested on an NTSC GameCube with a Broadband Adapter: browsing, installing
+  zip and `.dol` apps, starting them and updating the browser itself. Swiss
+  (its `.tar.xz` and boot files), updating and removing other apps, PAL
+  video and running without a network have not been tried on a console yet;
+  if something fails, `log.txt` says why.
 
 ## Licence
 
