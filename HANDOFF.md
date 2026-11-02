@@ -1,6 +1,6 @@
 # Handoff: GC Homebrew Hub Browser
 
-Last updated 2026-10-31 (names chosen: gc-homebrew-hub-catalog = the catalog repository, whose source is shown on the console as "GC Homebrew Hub"; GC Homebrew Hub Browser = the program). Read this before continuing the work; README.md
+Last updated 2026-11-01, version 0.4 (names chosen: gc-homebrew-hub-catalog = the catalog repository, whose source is shown on the console as "GC Homebrew Hub"; GC Homebrew Hub Browser = the program). Read this before continuing the work; README.md
 covers what the program is and how to build it.
 
 ## The goal
@@ -22,7 +22,7 @@ confirming again installs it.
 
 | Repo | Where | Remote | Status |
 |---|---|---|---|
-| gc-homebrew-hub-browser (this one) | `~/Documents/GitHub/gc-homebrew-hub-browser` | private, `gc-homebrew-hub/gc-homebrew-hub-browser` | the program; pushing here is fine |
+| gc-homebrew-hub-browser (this one) | `~/Documents/GitHub/gc-homebrew-hub-browser` | public, `gc-homebrew-hub/gc-homebrew-hub-browser` | the program; pushing here is fine |
 | gc-homebrew-hub-catalog (the catalog, formerly cubebrowser-apps) | `~/Documents/GitHub/gc-homebrew-hub-catalog` | public, `gc-homebrew-hub/gc-homebrew-hub-catalog` | `sources.json` and `index.json` on `main` are what consoles load; changes go through pull requests, checked by `scripts/validate.py --download` |
 | CubeBrowser (web browser) | `~/Documents/GitHub/Cubebrowser`, worktree branch `claude/cubebrowser-homebrew-apps-9f7d9c` | origin is upstream `Arial-Bold/Cubebrowser`, never pushed | contains the first, in-browser version of the store (`about:apps`). The owner decided the two should be separate and to leave that branch as it is for now. Never push, fork or open anything upstream from it. |
 
@@ -111,49 +111,54 @@ re-implemented here from scratch.
   pane is wider and the dim text colours are brighter. The preview now reads
   the same textures in their tiled GX layout (the stand-in font is gone).
 
-## What has NOT been verified
+## Hardware testing
 
-Nothing has run on hardware yet. In Dolphin (on the Mac, and in CI, which
-boots every `main` build and saves screenshots to the `dolphin-screenshots`
-branch) the program boots, draws the screens and text and the cube, brings
-up the HLE network adapter, completes TLS to GitHub and loads the catalog
-(9 apps). Dolphin has no SD card for a GameCube, so nothing that reads or
-writes the card has run outside the host tests: installing, updating,
-removing, the folder renames, `keep`, `copy_to_root`, `replace_at_root`, the
-log file and starting an app. Still open, in order of risk:
+Tested on a GameCube (NTSC, Broadband Adapter, SD card) with releases v0.3 and
+v0.4, 2026-11-01.
 
-1. GX rendering and the text (`video.c`, `font.c`): first thing to look at
-   on the console. If the screen stays black, suspect `video_init`; if there
-   is no text or it is garbled, the IA4 texture setup in `font_init` (the
-   tile layout in `bake_font.py` is what the preview reads, not hardware). On
-   PAL (528-line EFB) the 1:1 drawing is stretched a little vertically. The glass cube draws text and shapes through a perspective
-   projection (face decals): if those are missing or misplaced on hardware
-   but the cube itself shows, look at `face_space` in `video.c`. Also check
-   the frame rate on the Installed grid (18 small cubes).
-2. TLS on the console: entropy comes from the time base; certificate dates
-   depend on SNTP or the console clock. Failures show as toasts such as
-   "TLS handshake failed (-0x....)" (mbedTLS error strings are compiled out).
-   In Dolphin, -0x6E80 was not our TLS code: the HLE adapter's default DNS
-   (3.18.217.27) answers every name with itself and speaks only old SSL. With
-   `BBA_BUILTIN_DNS = 1.1.1.1` the handshake to GitHub completes in Dolphin
-   (about a minute after boot); the host test (`tests/net` on the
-   `claude/amazing-euler-179wg6` branch) also completes it.
-3. DNS: resolver asks the gateway, then 1.1.1.1 and 8.8.8.8 over UDP 53.
-4. The DOL stub and `SYS_ResetSystem(SYS_SHUTDOWN)` sequence (`dol.c`).
-5. libfat `rename` of directories during the folder swap.
-6. Memory while unpacking Swiss's .tar.xz (8.5 MB for the xz dictionary).
-   Measured in Dolphin (2026-10-31, commit 4557c4a, read over Dolphin's GDB
-   stub from `__sysarena1lo/hi` and dlmalloc's top chunk): the largest block
-   malloc could hand out was 18.3 MB at start and 17.1 MB once the catalog
-   (9 apps) had loaded, and stayed there. The image ends at 0x802dd800
-   (2.9 MB). Dolphin had no card, so `cacert.pem` (about 220 KB, parsed by
-   mbedTLS) was not loaded; on the console expect somewhat less, still about
-   twice what Swiss needs. The decoder's limit is now the largest free block less 1 MB, so too
-   little memory fails with "Unpacking needs N MB of memory; only M MB can
-   be spared" rather than a crash; the About screen shows free memory and
-   the log records it before each unpack.
-7. Real Broadband Adapter speed, SNTP and the console clock, PAL video, and
-   the frame rate on the Installed grid.
+Works on the console:
+
+- Video, the Inter text and every screen; toasts fade out, and the progress
+  line no longer overlaps the step text (v0.4).
+- DHCP, DNS, the clock, TLS to GitHub with `cacert.pem` verified, and
+  downloads, including GitHub's release redirects (about 910 characters long,
+  hence `MAX_URL` 2048 in `net.c`).
+- Installing bare `.dol` apps (gcradio, GC Station) and zip apps. libzip
+  1.10.1 failed every zip on the console with "Internal error" (20), so
+  `zipx.c` is now a reader of its own on zlib (v0.4).
+- Starting an installed app (`dol.c`).
+- Self-update from the console, 0.3 to 0.4: the new files went over the old
+  ones and settings, sources and the log stayed. Versions 0.2 and 0.3 cannot
+  unpack zips on the console, so anyone on them installs 0.4 by hand once.
+
+Not tested on hardware yet, in order of risk:
+
+1. Swiss: the only `.tar.xz` app (8.5 MB for the xz dictionary; Dolphin
+   measured about 17 MB free, see below), the "Boot file" confirm for
+   `replace_at_root` with the old files moved to `sd:/swiss_archive/`, and
+   `apploader.img` from the zip inside the download. Back up `sd:/ipl.dol`
+   before trying.
+2. Updating an ordinary app: the folder swap through `.old` (libfat renaming
+   directories), `keep`, and `copy_to_root`. The catalog's `copytest` source
+   covers all three (`scripts/serve.sh`, then `scripts/serve.sh 8765 2` for
+   the update; the catalog README says what to check).
+3. Remove.
+4. Adding a source by hand with the on-screen keyboard.
+5. Leaving: return to the loader and reboot, from each loader in use.
+6. No network or the adapter unplugged (the cached catalogs and an Offline
+   message), no card, a full card, cancelling.
+7. PAL video (the 528-line EFB stretches the 1:1 text a little vertically).
+8. A first start on a blank card from the release zip.
+
+Memory for Swiss, measured in Dolphin (2026-10-31, commit 4557c4a, read over
+Dolphin's GDB stub from `__sysarena1lo/hi` and dlmalloc's top chunk): the
+largest block malloc could hand out was 18.3 MB at start and 17.1 MB once the
+catalog had loaded. Dolphin had no card, so `cacert.pem` (about 220 KB,
+parsed by mbedTLS) was not loaded; on the console expect somewhat less. The
+decoder's limit is the largest free block less 1 MB, so too little memory
+fails with "Unpacking needs N MB of memory; only M MB can be spared" rather
+than a crash; the About screen shows free memory and the log records it
+before each unpack.
 
 When something goes wrong on the console, read
 `sd:/apps/gc-homebrew-hub-browser/log.txt` (`log.c`): every toast, each
@@ -187,7 +192,7 @@ Lines start with seconds since the program started; each start begins with a
 
 ## Next steps (suggested order)
 
-1. Hardware test and fix what it finds.
+1. The hardware tests still open under "Hardware testing" above.
 2. Grow the catalog (`gc-homebrew-hub/gc-homebrew-hub-catalog`). Bare `.dol`
    apps are in it (gcradio, GC Station); `copy_to_root` is only in the test
    source so far.
@@ -201,8 +206,11 @@ Lines start with seconds since the program started; each start begins with a
 ## Decisions and gotchas worth knowing
 
 - Data folder on the card is `sd:/apps/gc-homebrew-hub-browser/`; apps go to
-  `sd:/apps/<folder>/` so Swiss sees them. The program refuses catalog
-  entries whose folder is `gc-homebrew-hub-browser`.
+  `sd:/apps/<folder>/` so Swiss sees them. Only the catalog entry with
+  slug `gc-homebrew-hub-browser` may use that folder (the program's own
+  update); its `keep`, `copy_to_root` and `replace_at_root` are ignored, and
+  its files are moved over the old ones (`fs_move_over`) instead of swapping
+  the folder.
 - Unmanaged folders in `sd:/apps` (not installed by this program) are listed
   under Installed with start and remove only; a folder matching a catalog
   app's folder is offered Reinstall.
