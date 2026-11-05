@@ -1,7 +1,8 @@
 /* preview.c - renders the program's screens on a PC, for looking at the UI
  * without a GameCube. The real menu, screens and widgets run against the
- * software GX in gx_soft.c, a made-up card and catalog, and a script of
- * button presses; chosen frames are written as PPM images.
+ * software GX in gx_soft.c, a copy of the real catalog (catalog.json), a
+ * made-up card, and a script of button presses; chosen frames are written as
+ * PPM images.
  *
  * Runs inside a folder with a directory literally named "sd:" (the card). */
 #include "catalog.h"
@@ -70,33 +71,21 @@ u32 input_pressed(void) { return pressed; }
 u32 input_held(void) { return 0; }
 void input_sticks(float *x, float *y, float *cx, float *cy) { *x = stick[0]; *y = stick[1]; *cx = stick[2]; *cy = stick[3]; }
 
-/* ---- a made-up catalog and card ---- */
+/* ---- a copy of the real catalog, and a made-up card ---- */
 
-static const char *index_json =
-"{ \"format\": 1, \"name\": \"GC Homebrew Hub\", \"apps\": ["
-"{\"slug\":\"swiss\",\"name\":\"Swiss\",\"author\":\"emu_kidid\",\"version\":\"0.6r1913\",\"category\":\"utilities\","
-" \"short\":\"The Swiss army knife of GameCube homebrew\",\"long\":\"Boots games and homebrew from SD, network, IDE-EXI and more, with cheats, video mode forcing and a file manager.\",\"archive\":\"http://x/swiss.tar.xz\",\"zip_size\":11199948,"
-" \"replace_at_root\":[{\"file\":\"s/DOL/swiss.dol\",\"to\":\"ipl.dol\",\"archive\":\"swiss_archive\"},"
-" {\"file\":\"s/Apploader/EXTRACT_TO_ROOT.zip!swiss/patches/apploader.img\",\"to\":\"swiss/patches/apploader.img\",\"archive\":\"swiss_archive\"}]},"
-"{\"slug\":\"cubebrowser\",\"name\":\"CubeBrowser\",\"author\":\"Arial-Bold\",\"version\":\"1.4\",\"category\":\"utilities\","
-" \"short\":\"A web browser for the GameCube\",\"long\":\"Browse simple web pages over the Broadband Adapter.\",\"zip\":\"http://x/cb.zip\",\"zip_size\":1887436},"
-"{\"slug\":\"flashcube\",\"name\":\"Flashcube\",\"author\":\"lunzer\",\"version\":\"2.1\",\"category\":\"media\","
-" \"short\":\"Flash cards with thumbnails\",\"long\":\"Study flash cards on the GameCube. Keeps its card sets in sd:/flashcube.\",\"zip\":\"http://x/fc.zip\",\"zip_size\":734003,\"copy_to_root\":[\"flashcube\"]},"
-"{\"slug\":\"gc-mp3\",\"name\":\"GC-MP3\",\"author\":\"various\",\"version\":\"1.1\",\"category\":\"media\","
-" \"short\":\"Plays MP3 files from the SD card\",\"long\":\"A music player.\",\"dol\":\"http://x/mp3.dol\",\"binary\":\"gc-mp3.dol\"},"
-"{\"slug\":\"gbi\",\"name\":\"Game Boy Interface\",\"author\":\"Extrems\",\"version\":\"r1350\",\"category\":\"emulators\","
-" \"short\":\"Game Boy Player software, rebuilt\",\"long\":\"Low-latency Game Boy Player front end.\",\"zip\":\"http://x/gbi.zip\",\"zip_size\":2097152},"
-"{\"slug\":\"pong-cube\",\"name\":\"Pong Cube\",\"author\":\"devkitPro\",\"version\":\"1.0\",\"category\":\"games\","
-" \"short\":\"Two paddles, one ball, four controllers\",\"long\":\"A tiny game.\",\"zip\":\"http://x/pong.zip\",\"zip_size\":102400},"
-"{\"slug\":\"block-drop\",\"name\":\"Block Drop\",\"author\":\"cubedev\",\"version\":\"0.9\",\"category\":\"games\","
-" \"short\":\"Falling blocks\",\"long\":\"Stack them.\",\"zip\":\"http://x/bd.zip\",\"zip_size\":310000},"
-"{\"slug\":\"plasma\",\"name\":\"Plasma Demo\",\"author\":\"scene\",\"version\":\"1.0\",\"category\":\"demos\","
-" \"short\":\"Old-school plasma and a chiptune\",\"long\":\"A demo.\",\"zip\":\"http://x/p.zip\",\"zip_size\":220000},"
-"{\"slug\":\"neogeo-cd\",\"name\":\"Neo-Geo CD Redux\",\"author\":\"megalomaniac\",\"version\":\"1.0.3\",\"category\":\"emulators\","
-" \"short\":\"Neo-Geo CD emulator\",\"long\":\"Plays Neo-Geo CD images.\",\"zip\":\"http://x/ng.zip\",\"zip_size\":1500000},"
-"{\"slug\":\"memcard-pro\",\"name\":\"Memory Card Manager\",\"author\":\"suloku\",\"version\":\"1.4\",\"category\":\"utilities\","
-" \"short\":\"Back up and restore saves\",\"long\":\"Copies memory card saves to and from the SD card.\",\"zip\":\"http://x/mc.zip\",\"zip_size\":420000}"
-"]}";
+static char *read_catalog(size_t *len) {
+    FILE *f = fopen("../catalog.json", "rb");
+    if (!f) { perror("catalog.json"); exit(1); }
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    rewind(f);
+    char *buf = malloc(n + 1);
+    if (!buf || fread(buf, 1, n, f) != (size_t)n) { perror("catalog.json"); exit(1); }
+    fclose(f);
+    buf[n] = 0;
+    *len = n;
+    return buf;
+}
 
 static void make_card(void) {
     fs_mkdirs("sd:/apps/gc-homebrew-hub-browser");
@@ -115,14 +104,14 @@ static void make_card(void) {
     fs_write_file("sd:/swiss/patches/apploader.img", "img", 3);
     settings_defaults();
     catalog_set_card(true);
+    catalog_set_self("0.4");
     catalog_init("sd:/apps/gc-homebrew-hub-browser");
     char err[96];
     catalog_source_add("https://raw.githubusercontent.com/gc-homebrew-hub/gc-homebrew-hub-catalog/main/index.json", err, sizeof err);
     catalog_source_add("http://192.168.1.20:8765/index.json", err, sizeof err);
     catalog_source_add("https://example.org/gc/index.json", err, sizeof err);
     Source *s = catalog_source(0);
-    snprintf(s->name, sizeof s->name, "GC Homebrew Hub"); s->builtin = true; s->napps = 10;
-    snprintf(s->status, sizeof s->status, "10 apps");
+    snprintf(s->name, sizeof s->name, "GC Homebrew Hub"); s->builtin = true;
     s = catalog_source(1);
     snprintf(s->name, sizeof s->name, "Mac on the LAN"); s->napps = -1;
     snprintf(s->status, sizeof s->status, "Failed: could not connect (timed out)");
@@ -132,16 +121,21 @@ static void make_card(void) {
     App *arr = malloc(sizeof(App) * MAX_APPS);
     int n = 0;
     char name[48];
-    if (!catalog_parse_index(index_json, strlen(index_json), 0, arr, &n, MAX_APPS, name, sizeof name, err, sizeof err))
+    size_t len;
+    char *index_json = read_catalog(&len);
+    if (!catalog_parse_index(index_json, len, 0, arr, &n, MAX_APPS, name, sizeof name, err, sizeof err))
         fprintf(stderr, "index: %s\n", err);
+    free(index_json);
     catalog_replace_apps(arr, n);
-    catalog_installed_set("swiss", "Swiss", "0.6r1900", "swiss", "boot.dol");
-    catalog_installed_set("cubebrowser", "CubeBrowser", "1.4", "cubebrowser", "boot.dol");
-    catalog_installed_set("flashcube", "Flashcube", "2.0", "flashcube", "boot.dol");
-    catalog_installed_set("gc-mp3", "GC-MP3", "1.1", "gc-mp3", "gc-mp3.dol");
-    catalog_installed_set("gbi", "Game Boy Interface", "r1350", "gbi", "boot.dol");
-    catalog_installed_set("plasma", "Plasma Demo", "1.0", "plasma", "boot.dol");
-    catalog_installed_set("memcard-pro", "Memory Card Manager", "1.4", "memcard-pro", "boot.dol");
+    catalog_source(0)->napps = n;
+    snprintf(catalog_source(0)->status, sizeof catalog_source(0)->status, "%d apps", n);
+    /* what this made-up card has: two apps a version behind, the rest current */
+    catalog_installed_set("swiss", "Swiss", "0.6r1900", "swiss", "swiss_r1900.dol");
+    catalog_installed_set("flashcube", "Flashcube", "1.6", "flashcube", "default.dol");
+    catalog_installed_set("cubebrowser", "CubeBrowser", "2.8", "cubebrowser", "default.dol");
+    catalog_installed_set("gcmm", "GCMM", "1.5.2", "gcmm", "gcmm_GC.dol");
+    catalog_installed_set("gcradio", "gcradio", "3.2.0", "gcradio", "gcradio-gui.dol");
+    catalog_installed_set("snes9xgx", "Snes9x GX", "5.0.4", "snes9xgx", "snes9xgx-gc.dol");
     catalog_scan_card();
     catalog_recompute();
 }
@@ -205,7 +199,8 @@ int main(int argc, char **argv) {
 
     idle(10);                                  shot("01-homebrew-hub");
     press(BTN_RIGHT); press(BTN_RIGHT); idle(4); shot("02-hub-emulators");
-    press(BTN_LEFT); press(BTN_LEFT); press(BTN_DOWN); press(BTN_DOWN);
+    press(BTN_LEFT); press(BTN_LEFT);
+    for (int i = 0; i < 5; i++) press(BTN_DOWN);   /* Flashcube */
     press(BTN_A); idle(4);                     shot("03-details");
     busy = true; step_text = "Downloading"; job = "Flashcube"; progress = 0.62f;
     idle(2);                                   shot("04-details-installing");
@@ -223,7 +218,7 @@ int main(int argc, char **argv) {
     press(BTN_X); idle(4); press(BTN_RIGHT); press(BTN_RIGHT); idle(10); shot("10-keyboard");
     press(BTN_START); idle(4);
     section(1); idle(4);                       shot("11-settings");
-    ui_toast("Flashcube 2.1 installed", false);
+    ui_toast("Flashcube 1.7 installed", false);
     ui_toast("Mac on the LAN: could not connect (timed out)", true);
     idle(10);                                  shot("12-toasts");
     idle(180);                                 shot("12b-toast-fading");   /* the first, half gone */
@@ -233,7 +228,7 @@ int main(int argc, char **argv) {
     /* installing Swiss when its boot files are on the card */
     catalog_set_card(true);
     screens_open(SCR_STORE); idle(4);
-    for (int i = 0; i < 12; i++) press(BTN_UP);
+    for (int i = 0; i < 3; i++) press(BTN_DOWN);   /* from Flashcube to Swiss */
     press(BTN_A); idle(4);                     shot("14-swiss-details");
     press(BTN_A); idle(4);                     shot("15-boot-file");
     return 0;

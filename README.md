@@ -79,7 +79,8 @@ B goes back to the list. L/R page through long lists, X reloads the catalogs.
 | ![Installed](docs/screenshots/installed.png) | ![Sources](docs/screenshots/sources.png) |
 
 These are renders from `make preview` (below), with the same font textures the
-console draws.
+console draws. The apps are a copy of the real catalog; which ones are
+installed, and the sources other than GC Homebrew Hub, are samples.
 
 Apps install to `sd:/apps/<folder>/`, the layout Swiss uses, so they also show
 up in Swiss. An app's own data folders at the root of the card (for example
@@ -160,8 +161,8 @@ file helpers) with the normal C compiler; no devkitPPC needed.
 
 `make preview` renders the screens to `tools/preview/out/*.png`, also on the
 host: the real menu and screen code runs against a small software version of
-GX (`tools/preview/gx_soft.c`), a made-up card and catalog, and a script of
-button presses. It needs Python 3 with Pillow (to write the PNG files). The
+GX (`tools/preview/gx_soft.c`), a copy of the real catalog
+(`tools/preview/catalog.json`), a made-up card, and a script of button presses. It needs Python 3 with Pillow (to write the PNG files). The
 text comes from the program's own font textures, read in their GX format, so
 it looks as it does on the console. It has no depth buffer, culling or anti-aliasing, which
 the program does not use either, but it is not the console: check new
